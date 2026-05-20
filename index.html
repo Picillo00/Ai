@@ -107,7 +107,7 @@
   </div>
 
   <div id="display-box">
-    <div class="bubble ai"><strong>IA:</strong> Ciao! Cronologia attiva con coda intelligente. Fai doppio pinch per parlare, le richieste si accoderanno senza errori.</div>
+    <div class="bubble ai"><strong>IA:</strong> Ciao! Cronologia attiva con coda intelligente. Fai doppio pinch per parlare, le richieste si accoderanno senza errori. Swipe a destra per cancellare l'ultima domanda.</div>
   </div>
 
   <div id="controls">
@@ -184,14 +184,20 @@
     }
 
     const nextPrompt = requestQueue.shift();
-    isThinking = true;
     
+    // Se la richiesta estratta è stata marcata come cancellata, passiamo subito alla successiva
+    if (nextPrompt === "__CANCELLED__") {
+      setTimeout(processNextQueueItem, 50);
+      return;
+    }
+
+    isThinking = true;
     updateStatusDisplay('ELABORAZIONE...');
 
     const apiMessages = [
       { 
         role: 'system', 
-        content: 'Sei un assistente HUD per occhiali smart. Rispondi in italiano. Sii preciso al 100% sui dati storici e sportivi. Verifica sempre le informazioni usando la ricerca web attiva (es. Paolo Maldini ha giocato solo nel Milan!). Rispondi in massimo due frasi cortissime senza fronzoli.' 
+        content: 'Sei un assistente HUD per occhiali smart. Rispondi in italiano. Sii preciso al 100% sui dati storici e sportivi. Verifica sempre le informazioni usando la ricerca web attiva (es. Paolo Maldini ha giocato solo nel Milan!). Rispondi in massimo due frasi cortissime senza fronzoli. Rispondi SEMPRE e SOLO con testo semplice in italiano. Non restituire MAI codice JSON, reasoning o tool_calls.' 
       }
     ];
     
@@ -205,6 +211,7 @@
 
     try {
       const url = `https://text.pollinations.ai/${encodeURIComponent(nextPrompt)}?search=true&model=openai&system=${encodeURIComponent(apiMessages[0].content)}`;
+
       const response = await fetch(url, { method: 'GET' });
 
       if (!response.ok) throw new Error('Errore di risposta');
@@ -212,18 +219,16 @@
       let reply = await response.text();
       reply = reply.trim();
       
-      // FILTRO SUPER AGGRESSIVO ANTI-JSON
-      // Se la risposta contiene "reasoning" o inizia con una parentesi graffa, la ignoriamo o proviamo a estrarre il testo.
+      // FILTRO SUPER AGGRESSIVO ANTI-JSON LEAK
       if (reply.startsWith('{') || reply.includes('"reasoning"')) {
          try {
              const jsonObj = JSON.parse(reply);
-             if (jsonObj.content) {
-                 reply = jsonObj.content; // Prende solo la risposta finale se esiste
+             if (jsonObj.content && jsonObj.content !== "") {
+                 reply = jsonObj.content; // Prende solo la risposta pulita
              } else {
-                 throw new Error("Solo log interno"); // Forza il catch per saltare il turno
+                 throw new Error("Solo log interno o reasoning rilevato");
              }
          } catch (e) {
-             // Se esplode, significa che era un JSON sporco. 
              reply = "Sto verificando i dati, puoi ripetere?";
          }
       }
@@ -231,38 +236,26 @@
       appendBubble('ai', reply);
       
     } catch (error) {
-      if (nextPrompt !== "__CANCELLED__") {
-        appendBubble('ai', 'Ricerca in corso troppo complessa. Ripeti in modo più semplice.');
-      }
-    }
-      // ------------------------------------
-
-      appendBubble('ai', reply);
-      
-    } catch (error) {
-      if (nextPrompt !== "__CANCELLED__") {
-        appendBubble('ai', 'Errore temporaneo o ricerca fallita. Salto alla prossima richiesta...');
-      }
+      appendBubble('ai', 'Ricerca in corso troppo complessa. Ripeti in modo più semplice.');
     }
 
-    // Delay di sicurezza di 500ms tra una richiesta e l'altra per non intasare l'IP
+    // Delay di sicurezza di 500ms tra una richiesta e l'altra
     setTimeout(processNextQueueItem, 500);
   }
 
-  /* NUOVA FUNZIONE: Cancella l'ultima richiesta dell'utente */
+  /* RIMOZIONE DELLA RICHIESTA (SWIPE DX / BACKSPACE) */
   function removeLastUserRequest() {
-    // 1. Controlla se c'è qualcosa nella coda in attesa
+    // 1. Se c'è qualcosa nella coda, rimuove l'ultimo elemento inserito
     if (requestQueue.length > 0) {
-      requestQueue.pop(); // Rimuove l'ultimo elemento inserito nella coda
+      requestQueue.pop(); 
     } 
     
-    // 2. Trova e rimuove l'ultima bolla visiva dell'utente nel DOM e nell'array chatHistory
+    // 2. Rimuove l'ultima bolla dell'utente sia dal DOM che dalla cronologia logica
     const userBubbles = displayBox.querySelectorAll('.bubble.user');
     if (userBubbles.length > 0) {
       const lastUserBubble = userBubbles[userBubbles.length - 1];
-      lastUserBubble.remove(); // Elimina la bolla dalla schermata
+      lastUserBubble.remove();
       
-      // Rimuove l'ultimo messaggio 'user' anche dalla cronologia logica
       for (let i = chatHistory.length - 1; i >= 0; i--) {
         if (chatHistory[i].sender === 'user') {
           chatHistory.splice(i, 1);
@@ -304,11 +297,11 @@
   const DOUBLE_DELAY = 280;
   const LONG_DELAY = 450;
 
-  /* LOGICA DI SWIPE VERSO DESTRA */
+  /* EVENTI DI SWIPE (GESTURE) */
   let touchStartX = 0;
   let touchStartY = 0;
-  const SWIPE_THRESHOLD = 60; // Distanza minima in pixel per attivare lo swipe
-  const SWIPE_RESTRAINT = 40; // Massimo scostamento verticale permesso durante lo swipe
+  const SWIPE_THRESHOLD = 60; // Distanza minima in pixel per lo swipe
+  const SWIPE_RESTRAINT = 40; // Massimo scostamento verticale concesso
 
   document.addEventListener('touchstart', (e) => {
     const touch = e.changedTouches[0];
@@ -321,15 +314,15 @@
     const distX = touch.pageX - touchStartX;
     const distY = touch.pageY - touchStartY;
 
-    // Se si muove verso destra (distX > 0), supera la soglia e non è un movimento troppo verticale
+    // Se si muove a destra superando le soglie matematiche, cancella
     if (distX >= SWIPE_THRESHOLD && Math.abs(distY) <= SWIPE_RESTRAINT) {
       removeLastUserRequest();
-      e.preventDefault();
+      if(e.cancelable) e.preventDefault();
       return;
     }
   }, { passive: false });
 
-
+  /* PINCH EMULATION (POINTER EVENTS) */
   document.addEventListener('pointerdown', (e) => {
     isLongAction = false;
     clearTimeout(longTimer);
@@ -359,11 +352,12 @@
     }, DOUBLE_DELAY);
   });
 
+  /* CONTROLLI DA TASTIERA PC */
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') { e.preventDefault(); toggleListening(); }
     if (e.key === 'ArrowDown') { scrollChatDown(); }
     if (e.key === 'ArrowUp') { scrollChatUp(); }
-    if (e.key === 'Backspace' || e.key === 'Delete') { removeLastUserRequest(); } // Backspace come fallback da tastiera
+    if (e.key === 'Backspace' || e.key === 'Delete') { removeLastUserRequest(); }
   });
 
 })();
