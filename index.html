@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#000000">
-<title>HUD Infinite Chat</title>
+<title>HUD WhatsApp Style Chat</title>
 <style>
   :root {
     --bg: #000000;
     --text: #ffffff;
-    --dim: #666666;
-    --user-color: #39ff14; /* Verde per l'utente */
-    --ai-color: #00e5ff;   /* Ciano per l'IA */
+    --dim: #555555;
+    --user-color: #39ff14; /* Verde WhatsApp / Neon */
+    --ai-color: #00e5ff;   /* Ciano */
     --listening: #ff3b3b;
   }
   
@@ -24,13 +24,15 @@
   }
 
   #wrap {
-    display: flex; flex-direction: column; height: 100%; padding: 15px;
-    justify-content: space-between; align-items: center;
+    display: flex; flex-direction: column; height: 100%; padding: 12px;
+    justify-content: space-between;
   }
 
+  /* Header fisso in alto */
   #status-bar {
     font-size: 11px; font-weight: bold; color: var(--dim); letter-spacing: 2px;
-    display: flex; align-items: center; gap: 6px; z-index: 10;
+    display: flex; align-items: center; gap: 6px; padding-bottom: 6px;
+    border-bottom: 1px solid #111; z-index: 10; background: var(--bg);
   }
   
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
@@ -38,34 +40,46 @@
   .state-thinking .dot { background: #f4b400; animation: pulse 1s infinite; }
   .state-ready .dot { background: var(--user-color); }
 
-  /* Finestra della Chat (Mostra un messaggio alla volta, enorme) */
+  /* Area Chat: Lista verticale a scorrimento */
   #display-box {
-    flex-grow: 1; display: flex; flex-direction: column; justify-content: center;
-    width: 100%; max-width: 500px; padding: 10px; position: relative;
+    flex-grow: 1; display: flex; flex-direction: column;
+    gap: 12px; padding: 10px 0; overflow-y: scroll;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Nasconde la barra di scorrimento per estetica HUD */
+  #display-box::-webkit-scrollbar { display: none; }
+
+  /* Bolle della Chat */
+  .bubble {
+    max-width: 85%; padding: 10px 14px; border-radius: 16px;
+    font-size: 16px; line-height: 1.35; animation: fadeIn 0.2s ease forwards;
+    word-wrap: break-word;
   }
 
-  .chat-msg {
-    opacity: 0; transform: translateY(10px);
-    transition: all 0.25s ease; display: none;
-    text-align: left;
-  }
-  
-  .chat-msg.active {
-    display: block; opacity: 1; transform: translateY(0);
+  /* Stile messaggio UTENTE (A destra, Verde) */
+  .bubble.user {
+    align-self: flex-end;
+    background: rgba(57, 255, 20, 0.08);
+    border: 1px solid var(--user-color);
+    color: var(--user-color);
+    border-bottom-right-radius: 4px;
+    font-style: italic;
   }
 
-  .sender { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-  .msg-text { font-size: 18px; line-height: 1.4; }
-
-  /* Classi per differenziare i messaggi */
-  .msg-user .sender { color: var(--user-color); }
-  .msg-user .msg-text { color: var(--user-color); font-style: italic; }
-  .msg-ai .sender { color: var(--ai-color); }
-  .msg-ai .msg-text { color: #f0f0f0; }
+  /* Stile messaggio IA (A sinistra, Bianco/Ciano) */
+  .bubble.ai {
+    align-self: flex-start;
+    background: rgba(0, 229, 255, 0.05);
+    border: 1px solid rgba(0, 229, 255, 0.4);
+    color: #f0f0f0;
+    border-bottom-left-radius: 4px;
+  }
+  .bubble.ai strong { color: var(--ai-color); }
 
   #controls {
-    font-size: 10px; color: var(--dim); text-align: center; line-height: 1.3;
-    border-top: 1px solid #222; padding-top: 8px; width: 100%;
+    font-size: 10px; color: var(--dim); text-align: center;
+    border-top: 1px solid #111; padding-top: 6px; background: var(--bg);
   }
 
   @keyframes pulse {
@@ -73,10 +87,13 @@
     50% { transform: scale(1.1); opacity: 1; }
     100% { transform: scale(0.9); opacity: 0.6; }
   }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 
   @media (max-height: 360px) {
-    .msg-text { font-size: 15px; line-height: 1.3; }
-    .sender { margin-bottom: 3px; }
+    .bubble { font-size: 14px; padding: 8px 12px; }
   }
 </style>
 </head>
@@ -85,18 +102,15 @@
 <div id="wrap">
   <div id="status-bar" class="state-ready">
     <div class="dot"></div>
-    <span id="status-text">PRONTO [0/0]</span>
+    <span id="status-text">PRONTO</span>
   </div>
 
   <div id="display-box">
-    <div class="chat-msg active msg-ai" id="welcome-msg">
-      <div class="sender">Sistema IA</div>
-      <div class="msg-text">Doppio Pinch per parlare. Pinch singolo/lungo per scorrere la cronologia su e giù.</div>
-    </div>
+    <div class="bubble ai"><strong>IA:</strong> Ciao! Cronologia attiva. Fai doppio pinch per parlare, scorri la chat con i pinch singoli.</div>
   </div>
 
   <div id="controls">
-    <b>Doppio Pinch:</b> Parla • <b>Pinch Singolo:</b> Avanti • <b>Pinch Lungo:</b> Indietro
+    <b>Doppio Pinch:</b> Parla • <b>Pinch Singolo:</b> Giù • <b>Pinch Lungo:</b> Su
   </div>
 </div>
 
@@ -105,15 +119,10 @@
   const statusBar = document.getElementById('status-bar');
   const statusText = document.getElementById('status-text');
   const displayBox = document.getElementById('display-box');
-  const welcomeMsg = document.getElementById('welcome-msg');
 
   let recognition;
   let isListening = false;
-  
-  // Memoria storica dell'IA (Cronologia completa)
   let chatHistory = []; 
-  // Indice del messaggio attualmente visualizzato sull'HUD
-  let currentViewIndex = -1; 
 
   if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -133,53 +142,44 @@
 
     recognition.onresult = (event) => {
       const textSpoken = event.results[0][0].transcript;
-      addMessage('user', textSpoken);
+      appendBubble('user', textSpoken);
       askAI();
     };
   }
 
-  // Aggiunge un messaggio nella memoria grafica e logica
-  function addMessage(sender, text) {
-    // Rimuove il messaggio di benvenuto se presente
-    if (welcomeMsg) welcomeMsg.remove();
-
+  // Crea e attacca la bolla alla timeline (Stile WhatsApp)
+  function appendBubble(sender, text) {
     chatHistory.push({ sender: sender, text: text });
-    currentViewIndex = chatHistory.length - 1; // Vai subito all'ultimo messaggio ricevuto
     
-    renderCurrentMessage();
+    const bubble = document.createElement('div');
+    bubble.className = `bubble ${sender}`;
+    bubble.innerHTML = sender === 'user' ? text : `<strong>IA:</strong> ${text}`;
+    
+    displayBox.appendChild(bubble);
+    
+    // Auto-scroll automatico verso il basso per vedere l'ultimo messaggio pronto
+    setTimeout(() => {
+      displayBox.scrollTop = displayBox.scrollHeight;
+    }, 50);
+
+    resetStatus();
   }
 
-  // Mostra sull'HUD solo il messaggio selezionato dall'indice corrente
-  function renderCurrentMessage() {
-    if (chatHistory.length === 0) return;
-    
-    displayBox.innerHTML = ''; // Svuota la vista
-    
-    const msg = chatHistory[currentViewIndex];
-    const msgEl = document.createElement('div');
-    msgEl.className = `chat-msg active msg-${msg.sender}`;
-    msgEl.innerHTML = `
-      <div class="sender">${msg.sender === 'user' ? 'Tu' : 'IA'}</div>
-      <div class="msg-text">${msg.text}</div>
-    `;
-    displayBox.appendChild(msgEl);
-    
-    statusText.textContent = `CHAT [${currentViewIndex + 1}/${chatHistory.length}]`;
-  }
-
-  // Chiamata IA ultra-veloce con cronologia inclusa
+  // Chiamata IA rapida con super-correzione anti-allucinazione
   async function askAI() {
     statusBar.className = 'state-thinking';
     statusText.textContent = 'ELABORAZIONE...';
 
-    // Trasforma la nostra cronologia nel formato letto dall'API
     const apiMessages = [
-      { role: 'system', content: 'Sei un assistente HUD per occhiali smart. Rispondi in italiano. Sii estremamente conciso e diretto, massimo 2 frasi corte.' }
+      { 
+        role: 'system', 
+        content: 'Sei un assistente HUD per occhiali smart. Rispondi in italiano. Sii preciso al 100%, non inventare MAI nomi propri o unire fatti storici. Se l\'utente dice "Maldini" si riferisce a Paolo Maldini o Cesare Maldini, non inventare nomi come Marcello. Rispondi in massimo due frasi cortissime.' 
+      }
     ];
     
-    // Passa gli ultimi 6 messaggi per non rallentare l'API ma mantenere il filo del discorso
-    const recentHistory = chatHistory.slice(-6);
-    recentHistory.forEach(msg => {
+    // Mantiene in memoria le ultime 4 battute per il contesto
+    const recent = chatHistory.slice(-4);
+    recent.forEach(msg => {
       apiMessages.push({
         role: msg.sender === 'user' ? 'user' : 'assistant',
         content: msg.text
@@ -187,41 +187,35 @@
     });
 
     try {
-      // Modello 'cloud' ultra-rapido ottimizzato per la velocità
+      // Usiamo il motore openai-large forzato per aumentare drasticamente la precisione
       const response = await fetch('https://text.pollinations.ai/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          model: 'openai', 
+          model: 'openai',
           messages: apiMessages 
         })
       });
 
       const reply = await response.text();
-      addMessage('ai', reply);
-      resetStatus();
+      appendBubble('ai', reply);
     } catch (error) {
-      addMessage('ai', 'Errore di connessione. Riprova.');
-      resetStatus();
+      appendBubble('ai', 'Errore di rete. Riprova.');
     }
   }
 
   function resetStatus() {
     statusBar.className = 'state-ready';
-    statusText.textContent = chatHistory.length > 0 ? `CHAT [${currentViewIndex + 1}/${chatHistory.length}]` : 'PRONTO [0/0]';
+    statusText.textContent = 'PRONTO';
   }
 
-  // --- NAVIGAZIONE CRONOLOGIA ---
-  function scrollForward() {
-    if (chatHistory.length <= 1 || currentViewIndex >= chatHistory.length - 1) return;
-    currentViewIndex++;
-    renderCurrentMessage();
+  // --- FUNZIONI DI SCORRIMENTO PER L'HUD ---
+  function scrollChatDown() {
+    displayBox.scrollBy({ top: 80, behavior: 'smooth' });
   }
 
-  function scrollBackward() {
-    if (chatHistory.length <= 1 || currentViewIndex <= 0) return;
-    currentViewIndex--;
-    renderCurrentMessage();
+  function scrollChatUp() {
+    displayBox.scrollBy({ top: -80, behavior: 'smooth' });
   }
 
   function toggleListening() {
@@ -229,7 +223,7 @@
     if (isListening) recognition.stop(); else recognition.start();
   }
 
-  // --- GESTIONE BRACCIALE NEURAL-BAND ---
+  // --- ASSEGNAZIONE COMANDI BRACCIALE ---
   let lastClickTime = 0;
   let longTimer = null;
   let isLongAction = false;
@@ -241,7 +235,7 @@
     clearTimeout(longTimer);
     longTimer = setTimeout(() => {
       isLongAction = true;
-      scrollBackward(); // PINCH LUNGO -> Torna indietro nella cronologia
+      scrollChatUp(); // PINCH LUNGO -> Scorre la chat verso l'alto (messaggi vecchi)
     }, LONG_DELAY);
   });
 
@@ -251,7 +245,7 @@
 
     const now = Date.now();
     if (now - lastClickTime < DOUBLE_DELAY) {
-      // DOPPIO PINCH -> Parla
+      // DOPPIO PINCH -> Parla / Nuova domanda
       lastClickTime = 0;
       toggleListening();
       if(e) e.preventDefault();
@@ -262,15 +256,15 @@
     setTimeout(() => {
       if (lastClickTime !== now) return;
       lastClickTime = 0;
-      scrollForward(); // PINCH SINGOLO -> Vai avanti nella cronologia
+      scrollChatDown(); // PINCH SINGOLO -> Scorre la chat verso il basso (messaggi nuovi)
     }, DOUBLE_DELAY);
   });
 
-  // Test da tastiera PC
+  // Tasti PC Desktop per i test logici
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') { e.preventDefault(); toggleListening(); }
-    if (e.key === 'ArrowDown') { scrollForward(); }
-    if (e.key === 'ArrowUp') { scrollBackward(); }
+    if (e.key === 'ArrowDown') { scrollChatDown(); }
+    if (e.key === 'ArrowUp') { scrollChatUp(); }
   });
 
 })();
