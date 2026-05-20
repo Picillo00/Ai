@@ -2,91 +2,73 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#000000">
-<title>HUD WhatsApp Style Chat with Neural Lock</title>
+<title>HUD WhatsApp Style Chat with Queue</title>
 <link rel="icon" type="image/png" href="preview.png.jpg">
 <style>
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+  :root {
+    --bg: #000000;
+    --text: #ffffff;
+    --dim: #555555;
+    --user-color: #39ff14; /* Verde WhatsApp / Neon */
+    --ai-color: #00e5ff;   /* Ciano */
+    --listening: #ff3b3b;
+  }
+  
+  * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+  
+  body, html {
+    margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden; touch-action: none;
   }
 
-  body {
-    background-color: #020205;
-    color: #ffffff;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 12px;
-    overflow: hidden;
-    user-select: none;
-  }
-
-  .chat-container {
-    background: #05050a;
-    width: 100%;
-    max-width: 360px;
-    height: 85vh;
-    border-radius: 24px;
-    padding: 16px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
-    border: 2px solid #0b0b14;
-    display: flex;
-    flex-direction: column;
+  #wrap {
+    display: flex; flex-direction: column; height: 100%; padding: 12px;
     justify-content: space-between;
   }
 
+  /* Header fisso in alto */
   #status-bar {
-    font-size: 11px;
-    font-weight: bold;
-    color: #555555;
-    letter-spacing: 2px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #1a1a26;
+    font-size: 11px; font-weight: bold; color: var(--dim); letter-spacing: 2px;
+    display: flex; align-items: center; gap: 6px; padding-bottom: 6px;
+    border-bottom: 1px solid #111; z-index: 10; background: var(--bg);
   }
   
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #555555; }
-  .state-listening .dot { background: #ff3b3b; animation: pulse 1s infinite; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+  .state-listening .dot { background: var(--listening); animation: pulse 1s infinite; }
   .state-thinking .dot { background: #f4b400; animation: pulse 1s infinite; }
-  .state-ready .dot { background: #00ffaa; }
+  .state-ready .dot { background: var(--user-color); }
 
+  /* Area Chat: Lista verticale a scorrimento style WhatsApp */
   #display-box {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 14px 0;
-    overflow-y: auto;
+    flex-grow: 1; display: flex; flex-direction: column;
+    gap: 12px; padding: 10px 0; overflow-y: scroll;
     scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
   }
+  /* Nasconde la barra di scorrimento per estetica HUD */
   #display-box::-webkit-scrollbar { display: none; }
 
+  /* Bolle della Chat */
   .bubble {
-    max-width: 85%;
-    padding: 10px 14px;
-    border-radius: 16px;
-    font-size: 15px;
-    line-height: 1.35;
-    animation: fadeIn 0.2s ease forwards;
+    max-width: 85%; padding: 10px 14px; border-radius: 16px;
+    font-size: 16px; line-height: 1.35; animation: fadeIn 0.2s ease forwards;
     word-wrap: break-word;
   }
 
+  /* Stile messaggio UTENTE (A destra, Verde) */
   .bubble.user {
     align-self: flex-end;
-    background: rgba(0, 255, 170, 0.08);
-    border: 1px solid #00ffaa;
-    color: #00ffaa;
+    background: rgba(57, 255, 20, 0.08);
+    border: 1px solid var(--user-color);
+    color: var(--user-color);
     border-bottom-right-radius: 4px;
     font-style: italic;
   }
 
+  /* Stile messaggio IA (A sinistra, Bianco/Ciano) */
   .bubble.ai {
     align-self: flex-start;
     background: rgba(0, 229, 255, 0.05);
@@ -94,48 +76,11 @@
     color: #f0f0f0;
     border-bottom-left-radius: 4px;
   }
-  .bubble.ai strong { color: #00e5ff; }
+  .bubble.ai strong { color: var(--ai-color); }
 
-  .buttons-menu {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin-top: 10px;
-  }
-
-  .menu-btn {
-    border-radius: 16px;
-    height: 55px;
-    font-size: 1.1rem;
-    font-weight: bold;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.1s ease;
-    outline: none;
-    box-sizing: border-box;
-  }
-
-  @keyframes pulse-focus {
-    0% { box-shadow: inset 0 0 0 4px #00ffaa, 0 0 15px #00ffaa; }
-    50% { box-shadow: inset 0 0 0 4px #ffff00, 0 0 20px #ffff00; }
-    100% { box-shadow: inset 0 0 0 4px #00ffaa, 0 0 15px #00ffaa; }
-  }
-
-  .menu-btn:focus {
-    animation: pulse-focus 0.6s infinite;
-    z-index: 100;
-  }
-
-  #btn-talk {
-    border: 1px solid #00ffaa;
-    color: #00ffaa;
-    background: rgba(0, 255, 170, 0.05);
-  }
-
-  #btn-rollout {
-    border: 1px solid #ff0044;
-    color: #ff0044;
-    background: rgba(255, 0, 68, 0.05);
+  #controls {
+    font-size: 10px; color: var(--dim); text-align: center;
+    border-top: 1px solid #111; padding-top: 6px; background: var(--bg);
   }
 
   @keyframes pulse {
@@ -147,42 +92,44 @@
     from { opacity: 0; transform: translateY(5px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  @media (max-height: 360px) {
+    .bubble { font-size: 14px; padding: 8px 12px; }
+  }
 </style>
 </head>
 <body>
 
-<div class="chat-container">
+<div id="wrap">
   <div id="status-bar" class="state-ready">
     <div class="dot"></div>
     <span id="status-text">PRONTO</span>
   </div>
 
   <div id="display-box">
-    <div class="bubble ai"><strong>IA:</strong> Sistema allineato con l'architettura Hardware Lock. Fai il pinch o invia l'input dal bracciale per testare la risposta della Neural Band.</div>
+    <div class="bubble ai"><strong>IA:</strong> Ciao! Cronologia attiva con coda intelligente. Fai doppio pinch per parlare, le richieste si accoderanno senza errori. Swipe a destra per cancellare l'ultima domanda.</div>
   </div>
 
-  <div class="buttons-menu">
-    <button id="btn-talk" class="menu-btn" tabIndex="0">PARLA</button>
-    <button id="btn-rollout" class="menu-btn" tabIndex="0">ROLLOUT</button>
+  <div id="controls">
+    <b>Doppio Pinch:</b> Parla • <b>Pinch Singolo:</b> Giù • <b>Pinch Lungo:</b> Su • <b>Swipe DX:</b> Cancella
   </div>
 </div>
 
 <script>
+(() => {
   const statusBar = document.getElementById('status-bar');
   const statusText = document.getElementById('status-text');
   const displayBox = document.getElementById('display-box');
-  const btnTalk = document.getElementById('btn-talk');
-  const btnRollout = document.getElementById('btn-rollout');
 
   let recognition;
   let isListening = false;
   let isThinking = false; 
-  let lastTriggerTime = 0; 
+  let isTransitioning = false; // Scudo atomico contro i doppi invii hardware
+  let lastSpeechTrigger = 0;   // Protezione anti-rimbalzo temporale per la voce
   
   let chatHistory = []; 
   let requestQueue = []; 
 
-  // Inizializzazione controllata dell'API Speech Recognition con log a schermo
   if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
@@ -192,17 +139,21 @@
 
     recognition.onstart = () => {
       isListening = true;
+      isTransitioning = false; // Sblocca la transizione solo a hardware agganciato
       updateStatusDisplay('ASCOLTO...');
     };
 
-    // Stampa l'errore specifico della WebView direttamente sulla barra di stato HUD
-    recognition.onerror = (event) => { 
-      updateStatusDisplay('ERRORE VOCE: ' + event.error);
+    // Gestione errori avanzata per HUD: mostra la stringa esatta restituita dagli occhiali
+    recognition.onerror = (event) => {
       isListening = false;
+      isTransitioning = false;
+      updateStatusDisplay('ERRORE VOCE: ' + event.error);
+      setTimeout(() => { resetStatus(); }, 1500);
     };
 
     recognition.onend = () => { 
       isListening = false; 
+      isTransitioning = false;
       if (requestQueue.length === 0 && !isThinking) resetStatus();
     };
 
@@ -212,7 +163,6 @@
       pushToQueue(textSpoken);
     };
   } else {
-    // Segnale visivo nell'HUD se il browser integrato negli occhiali manca dell'API
     setTimeout(() => { updateStatusDisplay('VOCE NON SUPPORTATA DA WEBVIEW'); }, 500);
   }
 
@@ -234,6 +184,7 @@
 
   function pushToQueue(promptText) {
     requestQueue.push(promptText);
+    
     if (!isThinking) {
       processNextQueueItem();
     } else {
@@ -249,6 +200,7 @@
     }
 
     const nextPrompt = requestQueue.shift();
+    
     if (nextPrompt === "__CANCELLED__") {
       setTimeout(processNextQueueItem, 50);
       return;
@@ -275,6 +227,7 @@
     try {
       const url = `https://text.pollinations.ai/${encodeURIComponent(nextPrompt)}?search=true&model=openai&system=${encodeURIComponent(apiMessages[0].content)}`;
       const response = await fetch(url, { method: 'GET' });
+
       if (!response.ok) throw new Error('Errore di risposta');
 
       let reply = await response.text();
@@ -294,6 +247,7 @@
       }
 
       appendBubble('ai', reply);
+      
     } catch (error) {
       appendBubble('ai', 'Ricerca in corso troppo complessa. Ripeti in modo più semplice.');
     }
@@ -318,6 +272,7 @@
         }
       }
     }
+    
     resetStatus();
   }
 
@@ -337,17 +292,12 @@
     }
   }
 
-  // Nuova variabile di stato per prevenire sovrapposizioni distruttive dell'hardware
-  let isTransitioning = false;
+  function scrollChatDown() { displayBox.scrollBy({ top: 100, behavior: 'smooth' }); }
+  function scrollChatUp() { displayBox.scrollBy({ top: -100, behavior: 'smooth' }); }
 
   function toggleListening() {
-    if (!recognition) {
-      appendBubble('ai', 'Riconoscimento vocale non supportato o bloccato su questa WebView hardware.');
-      return;
-    }
-
-    // Se stiamo già provando ad avviare o fermare, blocca i click compulsivi del bracciale
-    if (isTransitioning) return;
+    if (!recognition) return;
+    if (isTransitioning) return; // Blocca l'esecuzione se l'hardware sta già cambiando stato
 
     if (isListening) {
       isTransitioning = true;
@@ -358,10 +308,10 @@
       }
     } else {
       isTransitioning = true;
-      updateStatusDisplay('AVVIO MICROFONO...');
+      updateStatusDisplay('INIZIALIZZAZIONE...');
       try {
         recognition.start();
-        // Sblocca la transizione solo dopo che l'hardware ha risposto stabilmente
+        // Timeout di sicurezza nel caso in cui il sistema operativo congeli la richiesta
         setTimeout(() => { isTransitioning = false; }, 800);
       } catch(e) {
         updateStatusDisplay('ERRORE AVVIO: ' + e.message);
@@ -370,120 +320,106 @@
     }
   }
 
-  // GESTORE EVENTI HARDWARE OTTIMIZZATO
-  function triggerTalk(e) {
+  // GESTORE CENTRALIZZATO E UNIFICATO DELLE GESTURE VOCALI
+  function safeTriggerTalk(e) {
     if (e) {
-      // Blocca la propagazione per evitare che un singolo evento venga letto sia come Touch che come Click
-      e.stopPropagation();
-      if (e.type !== 'keydown') e.preventDefault(); 
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation(); // Ferma la risalita dell'evento per evitare doppie letture
     }
     
     const now = Date.now();
-    // Alzato l'anti-rimbalzo a 600ms per i filtri muscolari della banda neurale
-    if (now - lastTriggerTime < 600) return; 
-    lastTriggerTime = now;
+    // Scudo hardware a 800ms per assorbire i rimbalzi di segnale della banda neurale
+    if (now - lastSpeechTrigger < 800) return; 
+    lastSpeechTrigger = now;
     
     toggleListening();
   }
 
-  function triggerRollout(e) {
-    if (e) {
-      e.stopPropagation();
-      if (e.type !== 'keydown') e.preventDefault(); 
-    }
-    const now = Date.now();
-    if (now - lastTriggerTime < 600) return;
-    lastTriggerTime = now;
-    
-    removeLastUserRequest();
-  }
+  let lastClickTime = 0;
+  let longTimer = null;
+  let scrollTimer = null; 
+  let isLongAction = false;
+  
+  /* TIMING HARDWARE NEURAL BAND */
+  const DOUBLE_DELAY = 420; 
+  const LONG_DELAY = 500;   
 
-  // Ascoltatori singoli e puliti
-  btnTalk.addEventListener('click', triggerTalk);
-  btnTalk.addEventListener('touchstart', triggerTalk);
-  btnTalk.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 32) {
-      triggerTalk(e);
-    }
-  });
+  /* GESTIONE SWIPE (CANCELLAZIONE) */
+  let touchStartX = 0;
+  let touchStartY = 0;
+  const SWIPE_THRESHOLD = 60;
+  const SWIPE_RESTRAINT = 40;
 
-  btnRollout.addEventListener('click', triggerRollout);
-  btnRollout.addEventListener('touchstart', triggerRollout);
-  btnRollout.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 32) {
-      triggerRollout(e);
-    }
-  });
+  document.addEventListener('touchstart', (e) => {
+    const touch = e.changedTouches[0];
+    touchStartX = touch.pageX;
+    touchStartY = touch.pageY;
+  }, { passive: true });
 
-  // Mantiene il focus forzato sul tasto talk per non perdere il canale di input del bracciale
-  btnTalk.addEventListener('blur', () => {
-    setTimeout(() => { 
-      if (!isListening && !isThinking) btnTalk.focus(); 
-    }, 1000);
-  });
+  document.addEventListener('touchend', (e) => {
+    const touch = e.changedTouches[0];
+    const distX = touch.pageX - touchStartX;
+    const distY = touch.pageY - touchStartY;
 
-  // Aggancio iniziale del Focus
-  setTimeout(() => { 
-    btnTalk.focus(); 
-  }, 500);
-</script>
-</body>
-</html>
-    if (!recognition) {
-      appendBubble('ai', 'Riconoscimento vocale non supportato o bloccato su questa WebView hardware.');
+    if (distX >= SWIPE_THRESHOLD && Math.abs(distY) <= SWIPE_RESTRAINT) {
+      removeLastUserRequest();
+      if(e.cancelable) e.preventDefault();
       return;
     }
-    if (isListening) {
-      recognition.stop();
-    } else {
-      try {
-        recognition.start();
-      } catch(e) {
-        updateStatusDisplay('ERRORE AVVIO: ' + e.message);
-      }
-    }
-  }
+  }, { passive: false });
 
-  // Intercettatori unificati per evitare blocchi legati alla natura dell'input emulato
-  function triggerTalk(e) {
-    if (e && e.type !== 'keydown') e.preventDefault(); 
-    const now = Date.now();
-    if (now - lastTriggerTime < 300) return; 
-    lastTriggerTime = now;
-    
-    toggleListening();
-  }
-
-  function triggerRollout(e) {
-    if (e && e.type !== 'keydown') e.preventDefault(); 
-    const now = Date.now();
-    if (now - lastTriggerTime < 300) return;
-    lastTriggerTime = now;
-    
-    removeLastUserRequest();
-  }
-
-  // Assegnazione multipla degli ascoltatori di eventi per il bracciale (Click, Touch, Pressione Tasti)
-  btnTalk.addEventListener('click', triggerTalk);
-  btnTalk.addEventListener('touchstart', triggerTalk);
-  btnTalk.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 32) {
-      triggerTalk(e);
-    }
+  /* LOGICA PINCH (INTERCETTAZIONE ACCOPPIATA POINTEREVENTS) */
+  document.addEventListener('pointerdown', (e) => {
+    isLongAction = false;
+    clearTimeout(longTimer);
+    longTimer = setTimeout(() => {
+      isLongAction = true;
+      scrollChatUp();
+    }, LONG_DELAY);
   });
 
-  btnRollout.addEventListener('click', triggerRollout);
-  btnRollout.addEventListener('touchstart', triggerRollout);
-  btnRollout.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 32) {
-      triggerRollout(e);
+  document.addEventListener('pointerup', (e) => {
+    clearTimeout(longTimer);
+    if (isLongAction) return;
+
+    const now = Date.now();
+    
+    // Controllo del doppio pinch simulato temporalmente
+    if (e.detail === 2 || (lastClickTime > 0 && (now - lastClickTime < DOUBLE_DELAY))) {
+      lastClickTime = 0;
+      clearTimeout(scrollTimer); // Interrompe il comando di scroll generato dal primo pinch
+      safeTriggerTalk(e);
+      return;
     }
+
+    lastClickTime = now;
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      if (lastClickTime !== now) return;
+      lastClickTime = 0;
+      scrollChatDown();
+    }, DOUBLE_DELAY);
   });
 
-  // Aggancio iniziale del Focus ritardato per stabilizzare l'iniezione hardware del bracciale
-  setTimeout(() => { 
-    btnTalk.focus(); 
-  }, 500);
+  /* DISATTIVAZIONE CONFLITTO NATIVO: Reindirizza il dblclick di sistema alla funzione safe */
+  document.addEventListener('dblclick', (e) => {
+    clearTimeout(scrollTimer);
+    lastClickTime = 0;
+    safeTriggerTalk(e);
+  });
+
+  /* INTERFACCIA TASTIERA DI BACKUP / ACCESSIBILITÀ HARDWARE */
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.key === 'Enter') { 
+      e.preventDefault(); 
+      safeTriggerTalk(e); 
+    }
+    if (e.key === 'ArrowDown') { scrollChatDown(); }
+    if (e.key === 'ArrowUp') { scrollChatUp(); }
+    if (e.key === 'Backspace' || e.key === 'Delete') { removeLastUserRequest(); }
+  });
+
+})();
 </script>
 </body>
 </html>
