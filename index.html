@@ -1,120 +1,3 @@
-<!doctype html>
-<html lang="it">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#000000">
-<title>HUD WhatsApp Style Chat</title>
-<style>
-  :root {
-    --bg: #000000;
-    --text: #ffffff;
-    --dim: #555555;
-    --user-color: #39ff14; /* Verde WhatsApp / Neon */
-    --ai-color: #00e5ff;   /* Ciano */
-    --listening: #ff3b3b;
-  }
-  
-  * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
-  
-  body, html {
-    margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    overflow: hidden; touch-action: none;
-  }
-
-  #wrap {
-    display: flex; flex-direction: column; height: 100%; padding: 12px;
-    justify-content: space-between;
-  }
-
-  /* Header fisso in alto */
-  #status-bar {
-    font-size: 11px; font-weight: bold; color: var(--dim); letter-spacing: 2px;
-    display: flex; align-items: center; gap: 6px; padding-bottom: 6px;
-    border-bottom: 1px solid #111; z-index: 10; background: var(--bg);
-  }
-  
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
-  .state-listening .dot { background: var(--listening); animation: pulse 1s infinite; }
-  .state-thinking .dot { background: #f4b400; animation: pulse 1s infinite; }
-  .state-ready .dot { background: var(--user-color); }
-
-  /* Area Chat: Lista verticale a scorrimento */
-  #display-box {
-    flex-grow: 1; display: flex; flex-direction: column;
-    gap: 12px; padding: 10px 0; overflow-y: scroll;
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-  }
-  /* Nasconde la barra di scorrimento per estetica HUD */
-  #display-box::-webkit-scrollbar { display: none; }
-
-  /* Bolle della Chat */
-  .bubble {
-    max-width: 85%; padding: 10px 14px; border-radius: 16px;
-    font-size: 16px; line-height: 1.35; animation: fadeIn 0.2s ease forwards;
-    word-wrap: break-word;
-  }
-
-  /* Stile messaggio UTENTE (A destra, Verde) */
-  .bubble.user {
-    align-self: flex-end;
-    background: rgba(57, 255, 20, 0.08);
-    border: 1px solid var(--user-color);
-    color: var(--user-color);
-    border-bottom-right-radius: 4px;
-    font-style: italic;
-  }
-
-  /* Stile messaggio IA (A sinistra, Bianco/Ciano) */
-  .bubble.ai {
-    align-self: flex-start;
-    background: rgba(0, 229, 255, 0.05);
-    border: 1px solid rgba(0, 229, 255, 0.4);
-    color: #f0f0f0;
-    border-bottom-left-radius: 4px;
-  }
-  .bubble.ai strong { color: var(--ai-color); }
-
-  #controls {
-    font-size: 10px; color: var(--dim); text-align: center;
-    border-top: 1px solid #111; padding-top: 6px; background: var(--bg);
-  }
-
-  @keyframes pulse {
-    0% { transform: scale(0.9); opacity: 0.6; }
-    50% { transform: scale(1.1); opacity: 1; }
-    100% { transform: scale(0.9); opacity: 0.6; }
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @media (max-height: 360px) {
-    .bubble { font-size: 14px; padding: 8px 12px; }
-  }
-</style>
-</head>
-<body>
-
-<div id="wrap">
-  <div id="status-bar" class="state-ready">
-    <div class="dot"></div>
-    <span id="status-text">PRONTO</span>
-  </div>
-
-  <div id="display-box">
-    <div class="bubble ai"><strong>IA:</strong> Ciao! Cronologia attiva. Fai doppio pinch per parlare, scorri la chat con i pinch singoli.</div>
-  </div>
-
-  <div id="controls">
-    <b>Doppio Pinch:</b> Parla • <b>Pinch Singolo:</b> Giù • <b>Pinch Lungo:</b> Su
-  </div>
-</div>
-
-<script>
 (() => {
   const statusBar = document.getElementById('status-bar');
   const statusText = document.getElementById('status-text');
@@ -122,7 +5,11 @@
 
   let recognition;
   let isListening = false;
+  let isThinking = false; 
+  
   let chatHistory = []; 
+  // LA CODA: Qui salviamo i prompt vocali in attesa di essere inviati all'IA
+  let requestQueue = []; 
 
   if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -133,8 +20,7 @@
 
     recognition.onstart = () => {
       isListening = true;
-      statusBar.className = 'state-listening';
-      statusText.textContent = 'ASCOLTO...';
+      updateStatusDisplay('ASCOLTO...');
     };
 
     recognition.onerror = () => resetStatus();
@@ -143,11 +29,12 @@
     recognition.onresult = (event) => {
       const textSpoken = event.results[0][0].transcript;
       appendBubble('user', textSpoken);
-      askAI();
+      
+      // Invece di sparare subito l'API, mettiamo la domanda in coda
+      pushToQueue(textSpoken);
     };
   }
 
-  // Crea e attacca la bolla alla timeline (Stile WhatsApp)
   function appendBubble(sender, text) {
     chatHistory.push({ sender: sender, text: text });
     
@@ -157,7 +44,6 @@
     
     displayBox.appendChild(bubble);
     
-    // Auto-scroll automatico verso il basso per vedere l'ultimo messaggio pronto
     setTimeout(() => {
       displayBox.scrollTop = displayBox.scrollHeight;
     }, 50);
@@ -165,19 +51,41 @@
     resetStatus();
   }
 
-  // Chiamata IA rapida con super-correzione anti-allucinazione
-  async function askAI() {
-    statusBar.className = 'state-thinking';
-    statusText.textContent = 'ELABORAZIONE...';
+  // --- GESTIONE DELLA CODA AVANZATA ---
 
+  function pushToQueue(promptText) {
+    requestQueue.push(promptText);
+    
+    // Se l'IA è libera, elabora subito la domanda
+    if (!isThinking) {
+      processNextQueueItem();
+    } else {
+      // Se l'IA sta pensando, aggiorna lo stato per avvisarti sull'HUD
+      updateStatusDisplay(`IN CODA [${requestQueue.length}]`);
+    }
+  }
+
+  async function processNextQueueItem() {
+    if (requestQueue.length === 0) {
+      isThinking = false;
+      resetStatus();
+      return;
+    }
+
+    // Estrae la prima domanda dalla lista d'attesa
+    const nextPrompt = requestQueue.shift();
+    isThinking = true;
+    
+    updateStatusDisplay('ELABORAZIONE...');
+
+    // prepariamo il contesto storico
     const apiMessages = [
       { 
         role: 'system', 
-        content: 'Sei un assistente HUD per occhiali smart. Rispondi in italiano. Sii preciso al 100%, non inventare MAI nomi propri o unire fatti storici. Se l\'utente dice "Maldini" si riferisce a Paolo Maldini o Cesare Maldini, non inventare nomi come Marcello. Rispondi in massimo due frasi cortissime.' 
+        content: 'Sei un assistente HUD per occhiali smart. Rispondi in italiano. Sii preciso al 100% sui dati storici e sportivi. Verifica sempre le informazioni (es. Paolo Maldini ha giocato solo nel Milan!). Rispondi in massimo due frasi cortissime senza fronzoli.' 
       }
     ];
     
-    // Mantiene in memoria le ultime 4 battute per il contesto
     const recent = chatHistory.slice(-4);
     recent.forEach(msg => {
       apiMessages.push({
@@ -187,43 +95,55 @@
     });
 
     try {
-      // Usiamo il motore openai-large forzato per aumentare drasticamente la precisione
-      const response = await fetch('https://text.pollinations.ai/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          model: 'openai',
-          messages: apiMessages 
-        })
-      });
+      // Manteniamo il sistema GET con parametri per massima velocità ed evitiamo i blocchi legacy
+      const url = `https://text.pollinations.ai/${encodeURIComponent(nextPrompt)}?search=true&model=openai&system=${encodeURIComponent(apiMessages[0].content)}`;
+
+      const response = await fetch(url, { method: 'GET' });
+
+      if (!response.ok) throw new Error('Errore di risposta');
 
       const reply = await response.text();
+      
+      // Stampa la risposta dell'IA stile WhatsApp
       appendBubble('ai', reply);
+      
     } catch (error) {
-      appendBubble('ai', 'Errore di rete. Riprova.');
+      appendBubble('ai', 'Errore temporaneo di ricezione. Salto alla prossima domanda...');
     }
+
+    // CICLO INFINITO DI CODA: Appena finisce (con successo o errore), passa alla prossima domanda accumulata
+    // Mettiamo un piccolissimo delay di sicurezza (500ms) per far respirare i server ed evitare i blocchi IP
+    setTimeout(processNextQueueItem, 500);
+  }
+
+  // Gestione dinamica delle scritte nell'Header dell'HUD
+  function updateStatusDisplay(stateText) {
+    if (stateText.includes('ASCOLTO')) statusBar.className = 'state-listening';
+    else if (stateText.includes('ELABORAZIONE') || stateText.includes('CODA')) statusBar.className = 'state-thinking';
+    else statusBar.className = 'state-ready';
+    
+    statusText.textContent = stateText;
   }
 
   function resetStatus() {
-    statusBar.className = 'state-ready';
-    statusText.textContent = 'PRONTO';
+    if (requestQueue.length > 0) {
+      updateStatusDisplay(`IN CODA [${requestQueue.length}]`);
+    } else {
+      updateStatusDisplay('PRONTO');
+    }
   }
 
-  // --- FUNZIONI DI SCORRIMENTO PER L'HUD ---
-  function scrollChatDown() {
-    displayBox.scrollBy({ top: 80, behavior: 'smooth' });
-  }
-
-  function scrollChatUp() {
-    displayBox.scrollBy({ top: -80, behavior: 'smooth' });
-  }
+  // --- FUNZIONI DI SCORRIMENTO ---
+  function scrollChatDown() { displayBox.scrollBy({ top: 100, behavior: 'smooth' }); }
+  function scrollChatUp() { displayBox.scrollBy({ top: -100, behavior: 'smooth' }); }
 
   function toggleListening() {
     if (!recognition) return;
+    // Puoi parlare anche se sta pensando: la domanda si accoderà da sola!
     if (isListening) recognition.stop(); else recognition.start();
   }
 
-  // --- ASSEGNAZIONE COMANDI BRACCIALE ---
+  // --- GESTIONE BRACCIALE ---
   let lastClickTime = 0;
   let longTimer = null;
   let isLongAction = false;
@@ -235,7 +155,7 @@
     clearTimeout(longTimer);
     longTimer = setTimeout(() => {
       isLongAction = true;
-      scrollChatUp(); // PINCH LUNGO -> Scorre la chat verso l'alto (messaggi vecchi)
+      scrollChatUp();
     }, LONG_DELAY);
   });
 
@@ -245,7 +165,6 @@
 
     const now = Date.now();
     if (now - lastClickTime < DOUBLE_DELAY) {
-      // DOPPIO PINCH -> Parla / Nuova domanda
       lastClickTime = 0;
       toggleListening();
       if(e) e.preventDefault();
@@ -256,18 +175,9 @@
     setTimeout(() => {
       if (lastClickTime !== now) return;
       lastClickTime = 0;
-      scrollChatDown(); // PINCH SINGOLO -> Scorre la chat verso il basso (messaggi nuovi)
+      scrollChatDown();
     }, DOUBLE_DELAY);
   });
 
-  // Tasti PC Desktop per i test logici
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') { e.preventDefault(); toggleListening(); }
-    if (e.key === 'ArrowDown') { scrollChatDown(); }
-    if (e.key === 'ArrowUp') { scrollChatUp(); }
-  });
-
-})();
-</script>
-</body>
-</html>
+    if (e.code === '
