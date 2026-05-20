@@ -1,31 +1,91 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="it">
 <head>
-    <meta charset="utf-8">
-    <title>HUD Chat</title>
-    <style>
-        /* Qui dentro ci va tutto il blocco dei CSS (la grafica nera/verde) */
-    </style>
-</head>
-<body>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>HUD WhatsApp Style Chat with Queue</title>
+<style>
+  :root {
+    --bg: #000000;
+    --text: #ffffff;
+    --dim: #555555;
+    --user-color: #39ff14; /* Verde WhatsApp / Neon */
+    --ai-color: #00e5ff;   /* Ciano */
+    --listening: #ff3b3b;
+  }
+  
+  * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+  
+  body, html {
+    margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden; touch-action: none;
+  }
 
-    <div id="wrap">
-      <div id="status-bar" class="state-ready">
-        <div class="dot"></div>
-        <span id="status-text">PRONTO</span>
-      </div>
-      <div id="display-box">
-        <div class="bubble ai"><strong>IA:</strong> Ciao! Cronologia attiva.</div>
-      </div>
-    </div>
+  #wrap {
+    display: flex; flex-direction: column; height: 100%; padding: 12px;
+    justify-content: space-between;
+  }
 
-    <script>
-    // SOLO QUI DENTRO ci va il codice che si vede nel tuo screenshot!
-    (() => { 
-        const statusBar = document.getElementById('status-bar');
-        // ... tutto il resto del codice JS fino alla fine ...
-    })();
-    </script>
+  /* Header fisso in alto */
+  #status-bar {
+    font-size: 11px; font-weight: bold; color: var(--dim); letter-spacing: 2px;
+    display: flex; align-items: center; gap: 6px; padding-bottom: 6px;
+    border-bottom: 1px solid #111; z-index: 10; background: var(--bg);
+  }
+  
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+  .state-listening .dot { background: var(--listening); animation: pulse 1s infinite; }
+  .state-thinking .dot { background: #f4b400; animation: pulse 1s infinite; }
+  .state-ready .dot { background: var(--user-color); }
 
-</body>
-</html>
+  /* Area Chat: Lista verticale a scorrimento style WhatsApp */
+  #display-box {
+    flex-grow: 1; display: flex; flex-direction: column;
+    gap: 12px; padding: 10px 0; overflow-y: scroll;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Nasconde la barra di scorrimento per estetica HUD */
+  #display-box::-webkit-scrollbar { display: none; }
+
+  /* Bolle della Chat */
+  .bubble {
+    max-width: 85%; padding: 10px 14px; border-radius: 16px;
+    font-size: 16px; line-height: 1.35; animation: fadeIn 0.2s ease forwards;
+    word-wrap: break-word;
+  }
+
+  /* Stile messaggio UTENTE (A destra, Verde) */
+  .bubble.user {
+    align-self: flex-end;
+    background: rgba(57, 255, 20, 0.08);
+    border: 1px solid var(--user-color);
+    color: var(--user-color);
+    border-bottom-right-radius: 4px;
+    font-style: italic;
+  }
+
+  /* Stile messaggio IA (A sinistra, Bianco/Ciano) */
+  .bubble.ai {
+    align-self: flex-start;
+    background: rgba(0, 229, 255, 0.05);
+    border: 1px solid rgba(0, 229, 255, 0.4);
+    color: #f0f0f0;
+    border-bottom-left-radius: 4px;
+  }
+  .bubble.ai strong { color: var(--ai-color); }
+
+  #controls {
+    font-size: 10px; color: var(--dim); text-align: center;
+    border-top: 1px solid #111; padding-top: 6px; background: var(--bg);
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(0.9); opacity: 0.6; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(0.9); opacity: 0.6; }
+  }
+  @keyframes fadeIn {
+    from { opacity
