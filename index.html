@@ -337,7 +337,98 @@
     }
   }
 
+  // Nuova variabile di stato per prevenire sovrapposizioni distruttive dell'hardware
+  let isTransitioning = false;
+
   function toggleListening() {
+    if (!recognition) {
+      appendBubble('ai', 'Riconoscimento vocale non supportato o bloccato su questa WebView hardware.');
+      return;
+    }
+
+    // Se stiamo già provando ad avviare o fermare, blocca i click compulsivi del bracciale
+    if (isTransitioning) return;
+
+    if (isListening) {
+      isTransitioning = true;
+      try {
+        recognition.stop();
+      } catch(e) {
+        isTransitioning = false;
+      }
+    } else {
+      isTransitioning = true;
+      updateStatusDisplay('AVVIO MICROFONO...');
+      try {
+        recognition.start();
+        // Sblocca la transizione solo dopo che l'hardware ha risposto stabilmente
+        setTimeout(() => { isTransitioning = false; }, 800);
+      } catch(e) {
+        updateStatusDisplay('ERRORE AVVIO: ' + e.message);
+        isTransitioning = false;
+      }
+    }
+  }
+
+  // GESTORE EVENTI HARDWARE OTTIMIZZATO
+  function triggerTalk(e) {
+    if (e) {
+      // Blocca la propagazione per evitare che un singolo evento venga letto sia come Touch che come Click
+      e.stopPropagation();
+      if (e.type !== 'keydown') e.preventDefault(); 
+    }
+    
+    const now = Date.now();
+    // Alzato l'anti-rimbalzo a 600ms per i filtri muscolari della banda neurale
+    if (now - lastTriggerTime < 600) return; 
+    lastTriggerTime = now;
+    
+    toggleListening();
+  }
+
+  function triggerRollout(e) {
+    if (e) {
+      e.stopPropagation();
+      if (e.type !== 'keydown') e.preventDefault(); 
+    }
+    const now = Date.now();
+    if (now - lastTriggerTime < 600) return;
+    lastTriggerTime = now;
+    
+    removeLastUserRequest();
+  }
+
+  // Ascoltatori singoli e puliti
+  btnTalk.addEventListener('click', triggerTalk);
+  btnTalk.addEventListener('touchstart', triggerTalk);
+  btnTalk.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 32) {
+      triggerTalk(e);
+    }
+  });
+
+  btnRollout.addEventListener('click', triggerRollout);
+  btnRollout.addEventListener('touchstart', triggerRollout);
+  btnRollout.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 32) {
+      triggerRollout(e);
+    }
+  });
+
+  // Mantiene il focus forzato sul tasto talk per non perdere il canale di input del bracciale
+  btnTalk.addEventListener('blur', () => {
+    setTimeout(() => { 
+      if (!isListening && !isThinking) btnTalk.focus(); 
+    }, 1000);
+  });
+
+  // Aggancio iniziale del Focus
+  setTimeout(() => { 
+    btnTalk.focus(); 
+  }, 500);
+</script>
+</body>
+</html>
     if (!recognition) {
       appendBubble('ai', 'Riconoscimento vocale non supportato o bloccato su questa WebView hardware.');
       return;
