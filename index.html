@@ -1,188 +1,31 @@
-(() => {
-  const statusBar = document.getElementById('status-bar');
-  const statusText = document.getElementById('status-text');
-  const displayBox = document.getElementById('display-box');
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <title>HUD Chat</title>
+    <style>
+        /* Qui dentro ci va tutto il blocco dei CSS (la grafica nera/verde) */
+    </style>
+</head>
+<body>
 
-  let recognition;
-  let isListening = false;
-  let isThinking = false; 
-  
-  let chatHistory = []; 
-  // LA CODA: Qui salviamo i prompt vocali in attesa di essere inviati all'IA
-  let requestQueue = []; 
+    <div id="wrap">
+      <div id="status-bar" class="state-ready">
+        <div class="dot"></div>
+        <span id="status-text">PRONTO</span>
+      </div>
+      <div id="display-box">
+        <div class="bubble ai"><strong>IA:</strong> Ciao! Cronologia attiva.</div>
+      </div>
+    </div>
 
-  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SpeechRecognition();
-    recognition.lang = 'it-IT';
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    <script>
+    // SOLO QUI DENTRO ci va il codice che si vede nel tuo screenshot!
+    (() => { 
+        const statusBar = document.getElementById('status-bar');
+        // ... tutto il resto del codice JS fino alla fine ...
+    })();
+    </script>
 
-    recognition.onstart = () => {
-      isListening = true;
-      updateStatusDisplay('ASCOLTO...');
-    };
-
-    recognition.onerror = () => resetStatus();
-    recognition.onend = () => { isListening = false; };
-
-    recognition.onresult = (event) => {
-      const textSpoken = event.results[0][0].transcript;
-      appendBubble('user', textSpoken);
-      
-      // Invece di sparare subito l'API, mettiamo la domanda in coda
-      pushToQueue(textSpoken);
-    };
-  }
-
-  function appendBubble(sender, text) {
-    chatHistory.push({ sender: sender, text: text });
-    
-    const bubble = document.createElement('div');
-    bubble.className = `bubble ${sender}`;
-    bubble.innerHTML = sender === 'user' ? text : `<strong>IA:</strong> ${text}`;
-    
-    displayBox.appendChild(bubble);
-    
-    setTimeout(() => {
-      displayBox.scrollTop = displayBox.scrollHeight;
-    }, 50);
-
-    resetStatus();
-  }
-
-  // --- GESTIONE DELLA CODA AVANZATA ---
-
-  function pushToQueue(promptText) {
-    requestQueue.push(promptText);
-    
-    // Se l'IA è libera, elabora subito la domanda
-    if (!isThinking) {
-      processNextQueueItem();
-    } else {
-      // Se l'IA sta pensando, aggiorna lo stato per avvisarti sull'HUD
-      updateStatusDisplay(`IN CODA [${requestQueue.length}]`);
-    }
-  }
-
-  async function processNextQueueItem() {
-    if (requestQueue.length === 0) {
-      isThinking = false;
-      resetStatus();
-      return;
-    }
-
-    // Estrae la prima domanda dalla lista d'attesa
-    const nextPrompt = requestQueue.shift();
-    isThinking = true;
-    
-    updateStatusDisplay('ELABORAZIONE...');
-
-    // prepariamo il contesto storico
-    const apiMessages = [
-      { 
-        role: 'system', 
-        content: 'Sei un assistente HUD per occhiali smart. Rispondi in italiano. Sii preciso al 100% sui dati storici e sportivi. Verifica sempre le informazioni (es. Paolo Maldini ha giocato solo nel Milan!). Rispondi in massimo due frasi cortissime senza fronzoli.' 
-      }
-    ];
-    
-    const recent = chatHistory.slice(-4);
-    recent.forEach(msg => {
-      apiMessages.push({
-        role: msg.sender === 'user' ? 'user' : 'assistant',
-        content: msg.text
-      });
-    });
-
-    try {
-      // Manteniamo il sistema GET con parametri per massima velocità ed evitiamo i blocchi legacy
-      const url = `https://text.pollinations.ai/${encodeURIComponent(nextPrompt)}?search=true&model=openai&system=${encodeURIComponent(apiMessages[0].content)}`;
-
-      const response = await fetch(url, { method: 'GET' });
-
-      if (!response.ok) throw new Error('Errore di risposta');
-
-      const reply = await response.text();
-      
-      // Stampa la risposta dell'IA stile WhatsApp
-      appendBubble('ai', reply);
-      
-    } catch (error) {
-      appendBubble('ai', 'Errore temporaneo di ricezione. Salto alla prossima domanda...');
-    }
-
-    // CICLO INFINITO DI CODA: Appena finisce (con successo o errore), passa alla prossima domanda accumulata
-    // Mettiamo un piccolissimo delay di sicurezza (500ms) per far respirare i server ed evitare i blocchi IP
-    setTimeout(processNextQueueItem, 500);
-  }
-
-  // Gestione dinamica delle scritte nell'Header dell'HUD
-  function updateStatusDisplay(stateText) {
-    if (stateText.includes('ASCOLTO')) statusBar.className = 'state-listening';
-    else if (stateText.includes('ELABORAZIONE') || stateText.includes('CODA')) statusBar.className = 'state-thinking';
-    else statusBar.className = 'state-ready';
-    
-    statusText.textContent = stateText;
-  }
-
-  function resetStatus() {
-    if (requestQueue.length > 0) {
-      updateStatusDisplay(`IN CODA [${requestQueue.length}]`);
-    } else {
-      updateStatusDisplay('PRONTO');
-    }
-  }
-
-  // --- FUNZIONI DI SCORRIMENTO ---
-  function scrollChatDown() { displayBox.scrollBy({ top: 100, behavior: 'smooth' }); }
-  function scrollChatUp() { displayBox.scrollBy({ top: -100, behavior: 'smooth' }); }
-
-  function toggleListening() {
-    if (!recognition) return;
-    // Puoi parlare anche se sta pensando: la domanda si accoderà da sola!
-    if (isListening) recognition.stop(); else recognition.start();
-  }
-
-  // --- GESTIONE BRACCIALE ---
-  let lastClickTime = 0;
-  let longTimer = null;
-  let isLongAction = false;
-  const DOUBLE_DELAY = 280;
-  const LONG_DELAY = 450;
-
-  document.addEventListener('pointerdown', (e) => {
-    isLongAction = false;
-    clearTimeout(longTimer);
-    longTimer = setTimeout(() => {
-      isLongAction = true;
-      scrollChatUp();
-    }, LONG_DELAY);
-  });
-
-  document.addEventListener('pointerup', (e) => {
-    clearTimeout(longTimer);
-    if (isLongAction) return;
-
-    const now = Date.now();
-    if (now - lastClickTime < DOUBLE_DELAY) {
-      lastClickTime = 0;
-      toggleListening();
-      if(e) e.preventDefault();
-      return;
-    }
-
-    lastClickTime = now;
-    setTimeout(() => {
-      if (lastClickTime !== now) return;
-      lastClickTime = 0;
-      scrollChatDown();
-    }, DOUBLE_DELAY);
-  });
-
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') { e.preventDefault(); toggleListening(); }
-    if (e.key === 'ArrowDown') { scrollChatDown(); }
-    if (e.key === 'ArrowUp') { scrollChatUp(); }
-  });
-
-})();
+</body>
+</html>
