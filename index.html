@@ -210,23 +210,31 @@
       if (!response.ok) throw new Error('Errore di risposta');
 
       let reply = await response.text();
-      
-      // --- NUOVO FILTRO ANTI-JSON LEAK ---
       reply = reply.trim();
-      if (reply.startsWith('{') && reply.endsWith('}')) {
-        try {
-          const jsonObj = JSON.parse(reply);
-          // Se c'è un contenuto testuale finale, usa quello
-          if (jsonObj.content && jsonObj.content !== "") {
-            reply = jsonObj.content;
-          } else {
-            // Se è solo un tool_call "sporco", diamo un messaggio di fallback
-            reply = "Ho avuto un'esitazione durante la ricerca. Puoi ripetere?";
-          }
-        } catch (parseError) {
-          // Se non è un JSON valido ma inizia con {, lo lasciamo passare
-        }
+      
+      // FILTRO SUPER AGGRESSIVO ANTI-JSON
+      // Se la risposta contiene "reasoning" o inizia con una parentesi graffa, la ignoriamo o proviamo a estrarre il testo.
+      if (reply.startsWith('{') || reply.includes('"reasoning"')) {
+         try {
+             const jsonObj = JSON.parse(reply);
+             if (jsonObj.content) {
+                 reply = jsonObj.content; // Prende solo la risposta finale se esiste
+             } else {
+                 throw new Error("Solo log interno"); // Forza il catch per saltare il turno
+             }
+         } catch (e) {
+             // Se esplode, significa che era un JSON sporco. 
+             reply = "Sto verificando i dati, puoi ripetere?";
+         }
       }
+
+      appendBubble('ai', reply);
+      
+    } catch (error) {
+      if (nextPrompt !== "__CANCELLED__") {
+        appendBubble('ai', 'Ricerca in corso troppo complessa. Ripeti in modo più semplice.');
+      }
+    }
       // ------------------------------------
 
       appendBubble('ai', reply);
