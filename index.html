@@ -185,7 +185,7 @@
 
     const nextPrompt = requestQueue.shift();
     
-    // Se la richiesta estratta è stata marcata come cancellata, passiamo subito alla successiva
+																								 
     if (nextPrompt === "__CANCELLED__") {
       setTimeout(processNextQueueItem, 50);
       return;
@@ -219,12 +219,12 @@
       let reply = await response.text();
       reply = reply.trim();
       
-      // FILTRO SUPER AGGRESSIVO ANTI-JSON LEAK
+											   
       if (reply.startsWith('{') || reply.includes('"reasoning"')) {
          try {
              const jsonObj = JSON.parse(reply);
              if (jsonObj.content && jsonObj.content !== "") {
-                 reply = jsonObj.content; // Prende solo la risposta pulita
+                 reply = jsonObj.content;
              } else {
                  throw new Error("Solo log interno o reasoning rilevato");
              }
@@ -239,18 +239,18 @@
       appendBubble('ai', 'Ricerca in corso troppo complessa. Ripeti in modo più semplice.');
     }
 
-    // Delay di sicurezza di 500ms tra una richiesta e l'altra
+															  
     setTimeout(processNextQueueItem, 500);
   }
 
-  /* RIMOZIONE DELLA RICHIESTA (SWIPE DX / BACKSPACE) */
+														
   function removeLastUserRequest() {
-    // 1. Se c'è qualcosa nella coda, rimuove l'ultimo elemento inserito
+																		 
     if (requestQueue.length > 0) {
       requestQueue.pop(); 
     } 
     
-    // 2. Rimuove l'ultima bolla dell'utente sia dal DOM che dalla cronologia logica
+																					
     const userBubbles = displayBox.querySelectorAll('.bubble.user');
     if (userBubbles.length > 0) {
       const lastUserBubble = userBubbles[userBubbles.length - 1];
@@ -300,8 +300,8 @@
   /* EVENTI DI SWIPE (GESTURE) */
   let touchStartX = 0;
   let touchStartY = 0;
-  const SWIPE_THRESHOLD = 60; // Distanza minima in pixel per lo swipe
-  const SWIPE_RESTRAINT = 40; // Massimo scostamento verticale concesso
+  const SWIPE_THRESHOLD = 60;
+  const SWIPE_RESTRAINT = 40;
 
   document.addEventListener('touchstart', (e) => {
     const touch = e.changedTouches[0];
@@ -314,7 +314,7 @@
     const distX = touch.pageX - touchStartX;
     const distY = touch.pageY - touchStartY;
 
-    // Se si muove a destra superando le soglie matematiche, cancella
+																	 
     if (distX >= SWIPE_THRESHOLD && Math.abs(distY) <= SWIPE_RESTRAINT) {
       removeLastUserRequest();
       if(e.cancelable) e.preventDefault();
@@ -337,7 +337,10 @@
     if (isLongAction) return;
 
     const now = Date.now();
-    if (now - lastClickTime < DOUBLE_DELAY) {
+    
+    /* ADATTAMENTO PER BANDA NEURALE: 
+       Se l'OS rileva un doppio click nativo (e.detail === 2) attiva l'ascolto bypassando il timer manuale */
+    if (e.detail === 2 || (now - lastClickTime < DOUBLE_DELAY)) {
       lastClickTime = 0;
       toggleListening();
       if(e) e.preventDefault();
@@ -352,9 +355,10 @@
     }, DOUBLE_DELAY);
   });
 
-  /* CONTROLLI DA TASTIERA PC */
+  /* CONTROLLI DA TASTIERA PC / COMANDI DI SELEZIONE SMART GLASSES */
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') { e.preventDefault(); toggleListening(); }
+    /* ADATTAMENTO PER BANDA NEURALE: Mappato anche il tasto 'Enter' oltre a 'Space' */
+    if (e.code === 'Space' || e.key === 'Enter') { e.preventDefault(); toggleListening(); }
     if (e.key === 'ArrowDown') { scrollChatDown(); }
     if (e.key === 'ArrowUp') { scrollChatUp(); }
     if (e.key === 'Backspace' || e.key === 'Delete') { removeLastUserRequest(); }
