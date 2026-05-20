@@ -2,73 +2,92 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <meta name="theme-color" content="#000000">
-<title>HUD WhatsApp Style Chat with Queue</title>
+<title>HUD WhatsApp Style Chat with Neural Lock</title>
 <link rel="icon" type="image/png" href="preview.png.jpg">
 <style>
-  :root {
-    --bg: #000000;
-    --text: #ffffff;
-    --dim: #555555;
-    --user-color: #39ff14; /* Verde WhatsApp / Neon */
-    --ai-color: #00e5ff;   /* Ciano */
-    --listening: #ff3b3b;
-  }
-  
-  * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
-  
-  body, html {
-    margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text);
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    overflow: hidden; touch-action: none;
   }
 
-  #wrap {
-    display: flex; flex-direction: column; height: 100%; padding: 12px;
+  body {
+    background-color: #020205;
+    color: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 12px;
+    overflow: hidden;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent; /* Evita flash blu su schermi touch */
+  }
+
+  .chat-container {
+    background: #05050a;
+    width: 100%;
+    max-width: 360px;
+    height: 85vh;
+    border-radius: 24px;
+    padding: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+    border: 2px solid #0b0b14;
+    display: flex;
+    flex-direction: column;
     justify-content: space-between;
   }
 
-  /* Header fisso in alto */
   #status-bar {
-    font-size: 11px; font-weight: bold; color: var(--dim); letter-spacing: 2px;
-    display: flex; align-items: center; gap: 6px; padding-bottom: 6px;
-    border-bottom: 1px solid #111; z-index: 10; background: var(--bg);
+    font-size: 11px;
+    font-weight: bold;
+    color: #555555;
+    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #1a1a26;
   }
   
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
-  .state-listening .dot { background: var(--listening); animation: pulse 1s infinite; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #555555; }
+  .state-listening .dot { background: #ff3b3b; animation: pulse 1s infinite; }
   .state-thinking .dot { background: #f4b400; animation: pulse 1s infinite; }
-  .state-ready .dot { background: var(--user-color); }
+  .state-ready .dot { background: #00ffaa; }
 
-  /* Area Chat: Lista verticale a scorrimento style WhatsApp */
   #display-box {
-    flex-grow: 1; display: flex; flex-direction: column;
-    gap: 12px; padding: 10px 0; overflow-y: scroll;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 0;
+    overflow-y: auto;
     scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
   }
-  /* Nasconde la barra di scorrimento per estetica HUD */
   #display-box::-webkit-scrollbar { display: none; }
 
-  /* Bolle della Chat */
   .bubble {
-    max-width: 85%; padding: 10px 14px; border-radius: 16px;
-    font-size: 16px; line-height: 1.35; animation: fadeIn 0.2s ease forwards;
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 15px;
+    line-height: 1.35;
+    animation: fadeIn 0.2s ease forwards;
     word-wrap: break-word;
   }
 
-  /* Stile messaggio UTENTE (A destra, Verde) */
   .bubble.user {
     align-self: flex-end;
-    background: rgba(57, 255, 20, 0.08);
-    border: 1px solid var(--user-color);
-    color: var(--user-color);
+    background: rgba(0, 255, 170, 0.08);
+    border: 1px solid #00ffaa;
+    color: #00ffaa;
     border-bottom-right-radius: 4px;
     font-style: italic;
   }
 
-  /* Stile messaggio IA (A sinistra, Bianco/Ciano) */
   .bubble.ai {
     align-self: flex-start;
     background: rgba(0, 229, 255, 0.05);
@@ -76,11 +95,48 @@
     color: #f0f0f0;
     border-bottom-left-radius: 4px;
   }
-  .bubble.ai strong { color: var(--ai-color); }
+  .bubble.ai strong { color: #00e5ff; }
 
-  #controls {
-    font-size: 10px; color: var(--dim); text-align: center;
-    border-top: 1px solid #111; padding-top: 6px; background: var(--bg);
+  .buttons-menu {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 10px;
+  }
+
+  .menu-btn {
+    border-radius: 16px;
+    height: 55px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    outline: none;
+    box-sizing: border-box;
+  }
+
+  @keyframes pulse-focus {
+    0% { box-shadow: inset 0 0 0 4px #00ffaa, 0 0 15px #00ffaa; }
+    50% { box-shadow: inset 0 0 0 4px #ffff00, 0 0 20px #ffff00; }
+    100% { box-shadow: inset 0 0 0 4px #00ffaa, 0 0 15px #00ffaa; }
+  }
+
+  .menu-btn:focus {
+    animation: pulse-focus 0.6s infinite;
+    z-index: 100;
+  }
+
+  #btn-talk {
+    border: 1px solid #00ffaa;
+    color: #00ffaa;
+    background: rgba(0, 255, 170, 0.05);
+  }
+
+  #btn-rollout {
+    border: 1px solid #ff0044;
+    color: #ff0044;
+    background: rgba(255, 0, 68, 0.05);
   }
 
   @keyframes pulse {
@@ -92,44 +148,44 @@
     from { opacity: 0; transform: translateY(5px); }
     to { opacity: 1; transform: translateY(0); }
   }
-
-  @media (max-height: 360px) {
-    .bubble { font-size: 14px; padding: 8px 12px; }
-  }
 </style>
 </head>
 <body>
 
-<div id="wrap">
+<div class="chat-container">
   <div id="status-bar" class="state-ready">
     <div class="dot"></div>
     <span id="status-text">PRONTO</span>
   </div>
 
   <div id="display-box">
-    <div class="bubble ai"><strong>IA:</strong> Ciao! Cronologia attiva con coda intelligente. Fai doppio pinch per parlare, le richieste si accoderanno senza errori. Swipe a destra per cancellare l'ultima domanda.</div>
+    <div class="bubble ai"><strong>IA:</strong> Sistema allineato con l'architettura Hardware Lock. Fai il pinch o invia l'input dal bracciale per testare la risposta.</div>
   </div>
 
-  <div id="controls">
-    <b>Doppio Pinch:</b> Parla • <b>Pinch Singolo:</b> Giù • <b>Pinch Lungo:</b> Su • <b>Swipe DX:</b> Cancella
+  <div class="buttons-menu">
+    <button id="btn-talk" class="menu-btn" tabIndex="0">PARLA</button>
+    <button id="btn-rollout" class="menu-btn" tabIndex="0">ROLLOUT</button>
   </div>
 </div>
 
 <script>
-(() => {
   const statusBar = document.getElementById('status-bar');
   const statusText = document.getElementById('status-text');
   const displayBox = document.getElementById('display-box');
+  const btnTalk = document.getElementById('btn-talk');
+  const btnRollout = document.getElementById('btn-rollout');
 
   let recognition;
   let isListening = false;
   let isThinking = false; 
-  let isTransitioning = false; // Scudo atomico contro i doppi invii hardware
-  let lastSpeechTrigger = 0;   // Protezione anti-rimbalzo temporale per la voce
+  let isTransitioning = false; // NUOVO: Scudo atomico per evitare doppi inneschi hardware
+  let lastTalkTriggerTime = 0; // Separato timer per microfono
+  let lastRollTriggerTime = 0; // Separato timer per rollout
   
   let chatHistory = []; 
   let requestQueue = []; 
 
+  // Inizializzazione controllata dell'API Speech Recognition
   if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
@@ -139,21 +195,20 @@
 
     recognition.onstart = () => {
       isListening = true;
-      isTransitioning = false; // Sblocca la transizione solo a hardware agganciato
+      isTransitioning = false; // Sblocca solo quando l'hardware risponde davvero
       updateStatusDisplay('ASCOLTO...');
     };
 
-    // Gestione errori avanzata per HUD: mostra la stringa esatta restituita dagli occhiali
-    recognition.onerror = (event) => {
+    recognition.onerror = (event) => { 
       isListening = false;
-      isTransitioning = false;
+      isTransitioning = false; // Sblocca in caso di errore
       updateStatusDisplay('ERRORE VOCE: ' + event.error);
-      setTimeout(() => { resetStatus(); }, 1500);
+      setTimeout(() => resetStatus(), 2000); // Ritorna visivamente allo stato pronto
     };
 
     recognition.onend = () => { 
       isListening = false; 
-      isTransitioning = false;
+      isTransitioning = false; // Sblocca a fine registrazione
       if (requestQueue.length === 0 && !isThinking) resetStatus();
     };
 
@@ -184,7 +239,6 @@
 
   function pushToQueue(promptText) {
     requestQueue.push(promptText);
-    
     if (!isThinking) {
       processNextQueueItem();
     } else {
@@ -200,7 +254,6 @@
     }
 
     const nextPrompt = requestQueue.shift();
-    
     if (nextPrompt === "__CANCELLED__") {
       setTimeout(processNextQueueItem, 50);
       return;
@@ -227,7 +280,6 @@
     try {
       const url = `https://text.pollinations.ai/${encodeURIComponent(nextPrompt)}?search=true&model=openai&system=${encodeURIComponent(apiMessages[0].content)}`;
       const response = await fetch(url, { method: 'GET' });
-
       if (!response.ok) throw new Error('Errore di risposta');
 
       let reply = await response.text();
@@ -247,7 +299,6 @@
       }
 
       appendBubble('ai', reply);
-      
     } catch (error) {
       appendBubble('ai', 'Ricerca in corso troppo complessa. Ripeti in modo più semplice.');
     }
@@ -272,7 +323,6 @@
         }
       }
     }
-    
     resetStatus();
   }
 
@@ -292,27 +342,29 @@
     }
   }
 
-  function scrollChatDown() { displayBox.scrollBy({ top: 100, behavior: 'smooth' }); }
-  function scrollChatUp() { displayBox.scrollBy({ top: -100, behavior: 'smooth' }); }
-
   function toggleListening() {
-    if (!recognition) return;
-    if (isTransitioning) return; // Blocca l'esecuzione se l'hardware sta già cambiando stato
+    if (!recognition) {
+      appendBubble('ai', 'Riconoscimento vocale non supportato sulla WebView.');
+      return;
+    }
+
+    // SCUDO ATOMICO: Se l'API sta elaborando un comando start/stop, ignora i nuovi comandi
+    if (isTransitioning) return;
+    
+    isTransitioning = true; // Blocca ulteriori esecuzioni
 
     if (isListening) {
-      isTransitioning = true;
       try {
         recognition.stop();
       } catch(e) {
-        isTransitioning = false;
+        isTransitioning = false; // Sblocca in caso di errore
       }
     } else {
-      isTransitioning = true;
       updateStatusDisplay('INIZIALIZZAZIONE...');
       try {
         recognition.start();
-        // Timeout di sicurezza nel caso in cui il sistema operativo congeli la richiesta
-        setTimeout(() => { isTransitioning = false; }, 800);
+        // Failsafe: sblocca lo scudo dopo 1 secondo se la WebView si blocca senza lanciare eventi
+        setTimeout(() => { isTransitioning = false; }, 1000); 
       } catch(e) {
         updateStatusDisplay('ERRORE AVVIO: ' + e.message);
         isTransitioning = false;
@@ -320,106 +372,50 @@
     }
   }
 
-  // GESTORE CENTRALIZZATO E UNIFICATO DELLE GESTURE VOCALI
+  // GESTORE SICURO: Previene i doppi tap, i click simulati dall'hardware e blocca il propagation
   function safeTriggerTalk(e) {
-    if (e) {
-      if (e.cancelable) e.preventDefault();
-      e.stopPropagation(); // Ferma la risalita dell'evento per evitare doppie letture
-    }
-    
+    if (e && e.cancelable) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
+
     const now = Date.now();
-    // Scudo hardware a 800ms per assorbire i rimbalzi di segnale della banda neurale
-    if (now - lastSpeechTrigger < 800) return; 
-    lastSpeechTrigger = now;
+    // Aumentato a 800ms per filtrare i rimbalzi dei segnali hardware Neural/Touch
+    if (now - lastTalkTriggerTime < 800) return; 
+    lastTalkTriggerTime = now;
     
     toggleListening();
   }
 
-  let lastClickTime = 0;
-  let longTimer = null;
-  let scrollTimer = null; 
-  let isLongAction = false;
-  
-  /* TIMING HARDWARE NEURAL BAND */
-  const DOUBLE_DELAY = 420; 
-  const LONG_DELAY = 500;   
-
-  /* GESTIONE SWIPE (CANCELLAZIONE) */
-  let touchStartX = 0;
-  let touchStartY = 0;
-  const SWIPE_THRESHOLD = 60;
-  const SWIPE_RESTRAINT = 40;
-
-  document.addEventListener('touchstart', (e) => {
-    const touch = e.changedTouches[0];
-    touchStartX = touch.pageX;
-    touchStartY = touch.pageY;
-  }, { passive: true });
-
-  document.addEventListener('touchend', (e) => {
-    const touch = e.changedTouches[0];
-    const distX = touch.pageX - touchStartX;
-    const distY = touch.pageY - touchStartY;
-
-    if (distX >= SWIPE_THRESHOLD && Math.abs(distY) <= SWIPE_RESTRAINT) {
-      removeLastUserRequest();
-      if(e.cancelable) e.preventDefault();
-      return;
-    }
-  }, { passive: false });
-
-  /* LOGICA PINCH (INTERCETTAZIONE ACCOPPIATA POINTEREVENTS) */
-  document.addEventListener('pointerdown', (e) => {
-    isLongAction = false;
-    clearTimeout(longTimer);
-    longTimer = setTimeout(() => {
-      isLongAction = true;
-      scrollChatUp();
-    }, LONG_DELAY);
-  });
-
-  document.addEventListener('pointerup', (e) => {
-    clearTimeout(longTimer);
-    if (isLongAction) return;
+  function safeTriggerRollout(e) {
+    if (e && e.cancelable) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
 
     const now = Date.now();
+    if (now - lastRollTriggerTime < 600) return;
+    lastRollTriggerTime = now;
     
-    // Controllo del doppio pinch simulato temporalmente
-    if (e.detail === 2 || (lastClickTime > 0 && (now - lastClickTime < DOUBLE_DELAY))) {
-      lastClickTime = 0;
-      clearTimeout(scrollTimer); // Interrompe il comando di scroll generato dal primo pinch
-      safeTriggerTalk(e);
-      return;
-    }
+    removeLastUserRequest();
+  }
 
-    lastClickTime = now;
-    clearTimeout(scrollTimer);
-    scrollTimer = setTimeout(() => {
-      if (lastClickTime !== now) return;
-      lastClickTime = 0;
-      scrollChatDown();
-    }, DOUBLE_DELAY);
+  // Ascoltatori puliti: in ambiente mobile/webview è preferibile usare solo click o pointerup
+  // per evitare che click e touchstart si attivino uno dopo l'altro.
+  btnTalk.addEventListener('click', safeTriggerTalk);
+  btnTalk.addEventListener('pointerup', safeTriggerTalk); // Cattura anche input neurali avanzati
+  
+  btnTalk.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') safeTriggerTalk(e);
   });
 
-  /* DISATTIVAZIONE CONFLITTO NATIVO: Reindirizza il dblclick di sistema alla funzione safe */
-  document.addEventListener('dblclick', (e) => {
-    clearTimeout(scrollTimer);
-    lastClickTime = 0;
-    safeTriggerTalk(e);
+  btnRollout.addEventListener('click', safeTriggerRollout);
+  btnRollout.addEventListener('pointerup', safeTriggerRollout);
+  
+  btnRollout.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') safeTriggerRollout(e);
   });
 
-  /* INTERFACCIA TASTIERA DI BACKUP / ACCESSIBILITÀ HARDWARE */
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' || e.key === 'Enter') { 
-      e.preventDefault(); 
-      safeTriggerTalk(e); 
-    }
-    if (e.key === 'ArrowDown') { scrollChatDown(); }
-    if (e.key === 'ArrowUp') { scrollChatUp(); }
-    if (e.key === 'Backspace' || e.key === 'Delete') { removeLastUserRequest(); }
-  });
-
-})();
+  // Aggancio iniziale del Focus ritardato per stabilizzare l'iniezione hardware del bracciale
+  setTimeout(() => { 
+    btnTalk.focus(); 
+  }, 500);
 </script>
 </body>
 </html>
