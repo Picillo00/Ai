@@ -180,4 +180,9 @@
   });
 
   window.addEventListener('keydown', (e) => {
-    if (e.code === '
+    if (e.code === 'Space') { e.preventDefault(); toggleListening(); }
+    if (e.key === 'ArrowDown') { scrollChatDown(); }
+    if (e.key === 'ArrowUp') { scrollChatUp(); }
+  });
+
+})();
