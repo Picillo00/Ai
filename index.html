@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <meta name="theme-color" content="#000000">
-<title>HUD AI - Free Navigation Mode</title>
+<title>HUD AI - Context Sniper</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
   body { background-color: #020205; color: #ffffff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 12px; overflow: hidden; user-select: none; }
@@ -22,19 +22,15 @@
   #display-box { flex-grow: 1; display: flex; flex-direction: column; gap: 10px; padding: 10px 0; overflow-y: auto; scroll-behavior: smooth; border-radius: 8px; transition: all 0.2s ease; }
   #display-box::-webkit-scrollbar { display: none; }
   
-  /* Evidenzia la chat quando la stai scorrendo */
-  .chat-scrolling #display-box { background: rgba(0, 229, 255, 0.03); box-shadow: inset 0 0 10px rgba(0, 229, 255, 0.1); }
+  .chat-scrolling #display-box { background: rgba(0, 229, 255, 0.03); }
 
   .bubble { max-width: 85%; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.35; animation: fadeIn 0.2s ease forwards; word-wrap: break-word; }
   .bubble.user { align-self: flex-end; background: rgba(0, 255, 170, 0.08); border: 1px solid #00ffaa; color: #00ffaa; border-bottom-right-radius: 4px; }
   .bubble.ai { align-self: flex-start; background: rgba(0, 229, 255, 0.05); border: 1px solid rgba(0, 229, 255, 0.4); color: #f0f0f0; border-bottom-left-radius: 4px; }
   .bubble.ai strong { color: #00e5ff; }
 
-  /* TASTIERA DIRETTA GRIGLIA */
-  .neural-matrix-zone {
-    background: #07070f; border: 1px solid #141426; border-radius: 18px; padding: 8px; display: flex; flex-direction: column; gap: 8px; transition: opacity 0.2s ease;
-  }
-  .chat-scrolling .neural-matrix-zone { opacity: 0.3; } /* Opacizza la tastiera se leggi la chat */
+  .neural-matrix-zone { background: #07070f; border: 1px solid #141426; border-radius: 18px; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .chat-scrolling .neural-matrix-zone { opacity: 0.3; }
 
   #text-preview-container { min-height: 38px; border-bottom: 1px dashed #222; padding-bottom: 4px; display: flex; flex-wrap: wrap; align-items: center; }
   #text-preview { font-size: 16px; color: #ffffff; font-weight: bold; }
@@ -42,12 +38,11 @@
 
   .matrix-grid { display: flex; flex-direction: column; gap: 4px; }
   .matrix-row { display: flex; gap: 4px; padding: 2px; }
-  .matrix-cell { flex: 1; text-align: center; padding: 6px 2px; font-size: 12px; font-weight: bold; color: #444466; background: #0c0c17; border-radius: 4px; transition: all 0.1s ease; white-space: nowrap; overflow: hidden; }
+  .matrix-cell { flex: 1; text-align: center; padding: 6px 2px; font-size: 11px; font-weight: bold; color: #444466; background: #0c0c17; border-radius: 4px; transition: all 0.1s ease; white-space: nowrap; overflow: hidden; }
   
-  /* Cella Attiva Selezionata */
-  .matrix-cell.cell-focused { background: #00ffaa !important; color: #000000 !important; font-size: 13px; transform: scale(1.05); box-shadow: 0 0 10px #00ffaa; }
+  .matrix-cell.cell-focused { background: #00ffaa !important; color: #000000 !important; font-size: 12px; transform: scale(1.05); box-shadow: 0 0 10px #00ffaa; }
   
-  .macro-cell { color: #f4b400; font-size: 10px; }
+  .macro-cell { color: #f4b400; font-size: 9px; }
   .fn-cell { color: #ff3b3b; }
 
   @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.6; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.6; } }
@@ -59,11 +54,11 @@
 <div class="chat-container" id="main-container">
   <div id="status-bar" class="state-ready">
     <div class="dot"></div>
-    <span id="status-text">TASTIERA ATTIVA</span>
+    <span id="status-text">SNIPER MODE ATTIVA</span>
   </div>
 
   <div id="display-box">
-    <div class="bubble ai"><strong>IA:</strong> Navigazione 4D Attiva. Muoviti liberamente in ogni direzione. Sali oltre la prima riga per scorrere la chat.</div>
+    <div class="bubble ai"><strong>IA:</strong> Inserisci una parola (es: Serie A) e premi direttamente INVIA o un filtro arancione per i dati reali.</div>
   </div>
 
   <div class="neural-matrix-zone">
@@ -89,8 +84,9 @@
   let currentText = "";
   let currentPrediction = "";
 
+  // Riga 0 modificata con i Filtri Intelligenti per risposte istantanee
   const matrix = [
-    ["💡 COMPLETA", "CHI?", "COSA?", "QUANDO?", "METEO", " "],
+    ["💡 COMPLETA", "📰 NOTIZIE", "📊 CLASSIFICA", "⚽ RISULTATI", "☀️ METEO", " "],
     ["E", "A", "I", "O", "U", "C"],
     ["L", "N", "R", "S", "T", "D"],
     ["P", "M", "V", "G", "B", "F"],
@@ -98,9 +94,9 @@
     ["J", "?", "W", "⌫ CANC", "🚀 INVIA", "🧹 PULISCI"]
   ];
 
-  let currentRow = 1; // Parte dalla riga delle vocali
-  let currentCol = 0; // Parte dalla 'E'
-  let chatFocus = false; // Controlla se siamo in modalità scorrimento chat
+  let currentRow = 1; 
+  let currentCol = 0; 
+  let chatFocus = false; 
 
   function renderMatrix() {
     gridContainer.innerHTML = "";
@@ -115,7 +111,6 @@
         if (rIdx === 0) cellDiv.classList.add('macro-cell');
         if (cellData.includes('⌫') || cellData.includes('🚀') || cellData.includes('🧹')) cellDiv.classList.add('fn-cell');
         
-        // Evidenzia la cella solo se non siamo dentro la chat
         if (!chatFocus && rIdx === currentRow && cIdx === currentCol) {
           cellDiv.classList.add('cell-focused');
         }
@@ -152,27 +147,18 @@
     else { fetchPrediction(currentText); }
   }
 
-  // ==========================================================
-  // NUOVA LOGICA D-PAD FLUIDA A 4 DIREZIONI
-  // ==========================================================
   window.addEventListener('keydown', (e) => {
     if (isThinking) return;
 
-    // --- CASO A: SIAMO IN MODALITÀ SCORRIMENTO CHAT ---
     if (chatFocus) {
-      if (e.key === "ArrowUp") {
-        displayBox.scrollTop -= 60; // Scorre in su nella cronologia
-      } 
+      if (e.key === "ArrowUp") { displayBox.scrollTop -= 60; } 
       else if (e.key === "ArrowDown") {
         const oldScroll = displayBox.scrollTop;
-        displayBox.scrollTop += 60; // Scorre in giù
-        
-        // Se ha finito di scorrere verso il basso, torna alla tastiera
+        displayBox.scrollTop += 60; 
         if (displayBox.scrollTop === oldScroll || (displayBox.scrollHeight - displayBox.scrollTop <= displayBox.clientHeight + 10)) {
           chatFocus = false;
           mainContainer.classList.remove('chat-scrolling');
-          currentRow = 0; // Si posiziona sulla prima riga delle macro
-          currentCol = 0;
+          currentRow = 0; currentCol = 0;
           statusText.textContent = "TASTIERA ATTIVA";
         }
       }
@@ -180,27 +166,13 @@
       return;
     }
 
-    // --- CASO B: NAVIGAZIONE DIRETTA NELLA TASTIERA ---
-    if (e.key === "ArrowLeft") {
-      currentCol = (currentCol - 1 + matrix[currentRow].length) % matrix[currentRow].length;
-    } 
-    else if (e.key === "ArrowRight") {
-      currentCol = (currentCol + 1) % matrix[currentRow].length;
-    } 
+    if (e.key === "ArrowLeft") { currentCol = (currentCol - 1 + matrix[currentRow].length) % matrix[currentRow].length; } 
+    else if (e.key === "ArrowRight") { currentCol = (currentCol + 1) % matrix[currentRow].length; } 
     else if (e.key === "ArrowUp") {
       currentRow--;
-      if (currentRow < 0) {
-        // Sei andato sopra la prima riga: Attiva scorrimento chat!
-        chatFocus = true;
-        mainContainer.classList.add('chat-scrolling');
-        statusText.textContent = "INFO CHAT (SU/GIÙ)";
-      }
+      if (currentRow < 0) { chatFocus = true; mainContainer.classList.add('chat-scrolling'); statusText.textContent = "INFO CHAT (SU/GIÙ)"; }
     } 
-    else if (e.key === "ArrowDown") {
-      if (currentRow < matrix.length - 1) {
-        currentRow++;
-      }
-    } 
+    else if (e.key === "ArrowDown") { if (currentRow < matrix.length - 1) { currentRow++; } } 
     else if (e.key === "Enter") {
       const val = matrix[currentRow][currentCol];
       
@@ -211,14 +183,14 @@
       } else if (val === "🧹 PULISCI") {
         currentText = ""; currentPrediction = "";
       } else if (val === "🚀 INVIA") {
-        if (currentText.trim() !== "") { sendToAI(currentText); currentText = ""; currentPrediction = ""; }
+        if (currentText.trim() !== "") { prepareAndSend(currentText, ""); }
+      } else if (val === "📰 NOTIZIE" || val === "📊 CLASSIFICA" || val === "⚽ RISULTATI" || val === "☀️ METEO") {
+        if (currentText.trim() !== "") { prepareAndSend(currentText, val); }
       } else {
-        currentText += val === "CHI?" || val === "COSA?" || val === "QUANDO?" || val === "METEO" ? val + " " : val;
+        currentText += val;
       }
-      
       updatePreview();
     }
-
     renderMatrix();
   });
 
@@ -229,23 +201,41 @@
     chatHistory.push({ sender: sender, text: text });
     const bubble = document.createElement('div');
     bubble.className = `bubble ${sender}`;
-    bubble.innerHTML = sender === 'user' ? `[Key]: ${text}` : `<strong>IA:</strong> ${text}`;
+    bubble.innerHTML = sender === 'user' ? `[Target]: ${text}` : `<strong>IA:</strong> ${text}`;
     displayBox.appendChild(bubble);
-    setTimeout(() => { 
-      if (!chatFocus) displayBox.scrollTop = displayBox.scrollHeight; 
-    }, 50);
+    setTimeout(() => { if (!chatFocus) displayBox.scrollTop = displayBox.scrollHeight; }, 50);
   }
 
-  async function sendToAI(promptText) {
+  // Funzione che ottimizza la query iniettando il contesto temporale e i filtri rapido
+  function prepareAndSend(keyword, filter) {
+    let finalQuery = keyword;
+    
+    // Se l'utente usa un filtro rapido, impacchettiamo la richiesta in modo perfetto per i motori di ricerca
+    if (filter === "📰 NOTIZIE") finalQuery = `ultime notizie flash oggi su ${keyword}`;
+    else if (filter === "📊 CLASSIFICA") finalQuery = `classifica aggiornata recente ${keyword}`;
+    else if (filter === "⚽ RISULTATI") finalQuery = `ultimi risultati partite e news di ${keyword}`;
+    else if (filter === "☀️ METEO") finalQuery = `meteo oggi e previsioni ${keyword}`;
+    else {
+      // Se invia la parola secca, forziamo un'espansione per dati recenti generalizzati
+      finalQuery = `${keyword} ultime notizie e dati aggiornati`;
+    }
+
+    sendToAI(finalQuery, keyword);
+    currentText = "";
+    currentPrediction = "";
+  }
+
+  async function sendToAI(searchQuery, visualKeyword) {
     isThinking = true;
     statusBar.className = "state-thinking";
-    statusText.textContent = "RICERCA WEB...";
-    appendBubble('user', promptText);
+    statusText.textContent = "SNIPER SEARCH...";
+    appendBubble('user', visualKeyword); // Mostra sugli occhiali solo la parola semplice inserita
 
-    const systemPrompt = "Sei un suggeritore in incognito per un utente impegnato in una conversazione dal vivo. Ti verranno fornite solo parole chiave. Fornisci i fatti salienti o dati aggiornati istantaneamente. Sii spietatamente conciso: usa elenchi puntati o frasi cortissime di massimo due righe. Solo testo semplice in italiano. Usa la ricerca web.";
+    // System prompt aggiornato al 2026 per distruggere le risposte generiche storiche
+    const systemPrompt = "Sei un assistente HUD ultra-veloce per occhiali AR. Ti trovi nell'anno 2026. L'utente ti fornisce parole chiave espanse. Devi fare una ricerca web in tempo reale e sputare fuori SOLO i dati più recenti, freschi e aggiornati ad oggi (2026). Sii telegrafico: usa solo elenchi puntati o massimo due righe di testo. Elimina introduzioni e saluti. Vai dritto al punto.";
     
     try {
-      const url = `https://text.pollinations.ai/${encodeURIComponent(promptText)}?search=true&model=openai&system=${encodeURIComponent(systemPrompt)}`;
+      const url = `https://text.pollinations.ai/${encodeURIComponent(searchQuery)}?search=true&model=openai&system=${encodeURIComponent(systemPrompt)}`;
       const response = await fetch(url);
       let reply = (await response.text()).trim();
 
@@ -254,7 +244,7 @@
       }
       appendBubble('ai', reply);
     } catch (e) {
-      appendBubble('ai', 'Rete assente.');
+      appendBubble('ai', 'Errore di caricamento.');
     }
 
     isThinking = false;
