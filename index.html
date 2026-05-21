@@ -4,22 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <meta name="theme-color" content="#000000">
-<title>HUD AI - Neural Keyboard Version</title>
+<title>HUD AI - Neural Matrix Keyboard</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
   body { background-color: #020205; color: #ffffff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 12px; overflow: hidden; user-select: none; }
   
   .chat-container { 
-    background: #05050a; width: 100%; max-width: 360px; height: 90vh; 
-    border-radius: 24px; padding: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9); 
+    background: #05050a; width: 100%; max-width: 360px; height: 92vh; 
+    border-radius: 24px; padding: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9); 
     border: 2px solid #0b0b14; display: flex; flex-direction: column; justify-content: space-between; 
   }
   
-  #status-bar { font-size: 11px; font-weight: bold; color: #00ffaa; letter-spacing: 2px; display: flex; align-items: center; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid #1a1a26; }
+  #status-bar { font-size: 11px; font-weight: bold; color: #00ffaa; letter-spacing: 2px; display: flex; align-items: center; gap: 6px; padding-bottom: 8px; border-bottom: 1px solid #1a1a26; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #00ffaa; }
   .state-thinking .dot { background: #f4b400; animation: pulse 1s infinite; }
   
-  #display-box { flex-grow: 1; display: flex; flex-direction: column; gap: 12px; padding: 14px 0; overflow-y: auto; scroll-behavior: smooth; }
+  #display-box { flex-grow: 1; display: flex; flex-direction: column; gap: 10px; padding: 10px 0; overflow-y: auto; scroll-behavior: smooth; }
   #display-box::-webkit-scrollbar { display: none; }
   
   .bubble { max-width: 85%; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.35; animation: fadeIn 0.2s ease forwards; word-wrap: break-word; }
@@ -28,32 +28,40 @@
   .bubble.ai strong { color: #00e5ff; }
 
   /* ==========================================
-     INTERFACCIA TASTIERA NEURALE HUD
+     STRUTTURA TASTIERA A MATRICE HUD
      ========================================== */
-  .neural-input-zone {
-    background: #090914; border: 1px solid #1a1a3a; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  .neural-matrix-zone {
+    background: #07070f; border: 1px solid #141426; border-radius: 18px; padding: 8px; display: flex; flex-direction: column; gap: 8px;
   }
   #text-preview {
-    font-size: 15px; color: #fff; min-height: 22px; border-bottom: 1px dashed #333; padding-bottom: 4px; font-style: italic; word-break: break-all;
+    font-size: 14px; color: #ffffff; min-height: 38px; max-height: 55px; border-bottom: 1px dashed #222; padding-bottom: 4px; font-style: italic; word-break: break-all; overflow-y: auto;
   }
-  .keyboard-carousel {
-    display: flex; justify-content: center; align-items: center; gap: 10px; overflow: hidden; position: relative; height: 35px;
+  #text-preview::-webkit-scrollbar { display: none; }
+
+  .matrix-grid {
+    display: flex; flex-direction: column; gap: 4px;
   }
-  .char-item {
-    font-size: 14px; color: #555; transition: all 0.1s ease; min-width: 25px; text-align: center;
+  .matrix-row {
+    display: flex; gap: 4px; padding: 2px; border-radius: 6px; transition: all 0.15s ease;
   }
-  .char-item.active {
-    font-size: 20px; color: #00ffaa; font-weight: bold; border-bottom: 2px solid #00ffaa; transform: scale(1.2);
+  /* Stato 1: Selezione della Riga */
+  .matrix-row.row-focused {
+    background: rgba(0, 255, 170, 0.08); border: 1px dashed rgba(0, 255, 170, 0.4);
   }
-  .quick-predictions {
-    display: flex; gap: 6px; justify-content: space-between; overflow-x: auto;
+  .matrix-cell {
+    flex: 1; text-align: center; padding: 6px 2px; font-size: 12px; font-weight: bold; color: #444466; background: #0c0c17; border-radius: 4px; transition: all 0.1s ease; white-space: nowrap; overflow: hidden;
   }
-  .predict-badge {
-    background: #111126; border: 1px solid #222; color: #888; font-size: 11px; padding: 4px 8px; border-radius: 8px; white-space: nowrap;
+  /* La riga è selezionata, ma non abbiamo ancora scelto la lettera */
+  .matrix-row.row-focused .matrix-cell {
+    color: #88aaff;
   }
-  .predict-badge.focused {
-    border-color: #f4b400; color: #f4b400; background: rgba(244,180,0,0.05);
+  /* Stato 2: Selezione della specifica Lettera/Cella */
+  .matrix-cell.cell-focused {
+    background: #00ffaa !important; color: #000000 !important; font-size: 14px; transform: scale(1.08); box-shadow: 0 0 10px #00ffaa;
   }
+  /* Grafica speciale per le Macro e tasti funzione */
+  .macro-cell { color: #00e5ff; font-size: 10px; }
+  .fn-cell { color: #ff3b3b; }
 
   @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.6; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.6; } }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
@@ -64,24 +72,17 @@
 <div class="chat-container">
   <div id="status-bar" class="state-ready">
     <div class="dot"></div>
-    <span id="status-text">INPUT NEURALE ATTIVO</span>
+    <span id="status-text">MODALITÀ MATRICE: SCELTA RIGA</span>
   </div>
 
   <div id="display-box">
-    <div class="bubble ai"><strong>IA:</strong> Sistema pronto. Usa i gesti del bracciale per scrivere velocemente.</div>
+    <div class="bubble ai"><strong>IA:</strong> Sistema Matrix caricato. Scegli la riga con le frecce, premi Invio per sbloccare le lettere.</div>
   </div>
 
-  <div class="neural-input-zone">
-    <div id="text-preview">Inizia a scrivere...</div>
-    
-    <div class="keyboard-carousel" id="carousel">
+  <div class="neural-matrix-zone">
+    <div id="text-preview">Scrivi con i gesti...</div>
+    <div class="matrix-grid" id="grid-container">
       </div>
-
-    <div class="quick-predictions" id="predictions-box">
-      <div class="predict-badge focused" id="p1">[SPAZIO]</div>
-      <div class="predict-badge" id="p2">[CANCELLA]</div>
-      <div class="predict-badge" id="p3">[INVIA 🚀]</div>
-    </div>
   </div>
 </div>
 
@@ -90,114 +91,119 @@
   const statusBar = document.getElementById('status-bar');
   const statusText = document.getElementById('status-text');
   const textPreview = document.getElementById('text-preview');
-  const carousel = document.getElementById('carousel');
+  const gridContainer = document.getElementById('grid-container');
   
   let isThinking = false;
   let chatHistory = [];
   let currentText = "";
 
-  // Alfabeto HUD ordinato per frequenza d'uso nella lingua italiana per massima velocità
-  const alphabet = [" ", "E", "A", "I", "O", "U", "L", "N", "R", "S", "T", "C", "D", "P", "M", "V", "G", "B", "F", "H", "Q", "Z", "X", "Y", "K", "J", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "?", "."];
-  let currentIndex = 1; // Parte dalla 'E'
+  // Griglia 6x6 ottimizzata. 
+  // Riga 0: Macro rapide per non digitare mai le intere domande d'avvio.
+  // Righe successive: Lettere ordinate per frequenza in italiano + comandi di controllo.
+  const matrix = [
+    ["METEO ", "CHI È ", "COS'È ", "NEWS ", "DOV'È ", "PERCHÉ "],
+    ["E", "A", "I", "O", "U", " "],
+    ["L", "N", "R", "S", "T", "C"],
+    ["D", "P", "M", "V", "G", "B"],
+    ["F", "H", "Q", "Z", "X", "Y"],
+    ["K", "J", "?", ".", "⌫ CANCELLA", "🚀 INVIA"]
+  ];
 
-  // Gestione dei comandi rapidi (Spazio, Cancella, Invia)
-  let currentActionIndex = -1; // -1 significa che stiamo selezionando le lettere. 0,1,2 sono le azioni rapide.
-  const actions = ["SPACE", "BACKSPACE", "SEND"];
-  const badges = [document.getElementById('p1'), document.getElementById('p2'), document.getElementById('p3')];
+  let currentRow = 0;
+  let currentCol = -1; // -1 significa "Siamo in modalità selezione Riga"
 
-  // Renderizza la tastiera circolare nell'HUD
-  function renderCarousel() {
-    carousel.innerHTML = "";
-    // Mostra la lettera corrente e le 3 precedenti/successive per dare l'effetto rotazione
-    for (let i = -3; i <= 3; i++) {
-      let idx = (currentIndex + i + alphabet.length) % alphabet.length;
-      const char = alphabet[idx] === " " ? "␣" : alphabet[idx];
-      const div = document.createElement('div');
-      div.className = `char-item ${i === 0 && currentActionIndex === -1 ? 'active' : ''}`;
-      div.textContent = char;
-      carousel.appendChild(div);
-    }
-  }
-
-  function updateActionBadges() {
-    badges.forEach((b, idx) => {
-      if (idx === currentActionIndex) b.className = "predict-badge focused";
-      else b.className = "predict-badge";
+  // Genera la griglia visiva nell'HUD
+  function renderMatrix() {
+    gridContainer.innerHTML = "";
+    matrix.forEach((rowData, rIdx) => {
+      const rowDiv = document.createElement('div');
+      rowDiv.className = `matrix-row ${rIdx === currentRow ? 'row-focused' : ''}`;
+      
+      rowData.forEach((cellData, cIdx) => {
+        const cellDiv = document.createElement('div');
+        cellDiv.className = 'matrix-cell';
+        
+        // Assegna classi di colore per identificare i tasti a colpo d'occhio
+        if (rIdx === 0) cellDiv.classList.add('macro-cell');
+        if (cellData.includes('⌫') || cellData.includes('🚀')) cellDiv.classList.add('fn-cell');
+        
+        if (rIdx === currentRow && cIdx === currentCol) {
+          cellDiv.classList.add('cell-focused');
+        }
+        
+        cellDiv.textContent = cellData === " " ? "␣" : cellData;
+        rowDiv.appendChild(cellDiv);
+      });
+      gridContainer.appendChild(rowDiv);
     });
   }
 
   // ==========================================================
-  // MAPPAZIONE DEI GESTI DEL BRACCIALE (Tasti tastiera standard)
+  // LOGICA DI NAVIGAZIONE BINFASE (RIGA -> COLONNA)
   // ==========================================================
   window.addEventListener('keydown', (e) => {
     if (isThinking) return;
 
-    // GESTO A (Es: Pinch Indice) -> Muove a Sinistra / Su
-    if (e.key === "ArrowLeft") {
-      if (currentActionIndex > -1) {
-        currentActionIndex--;
-        updateActionBadges();
-        renderCarousel();
-      } else {
-        currentIndex = (currentIndex - 1 + alphabet.length) % alphabet.length;
-        renderCarousel();
-      }
-    }
-    
-    // GESTO B (Es: Pinch Medio) -> Muove a Destra / Giù
-    else if (e.key === "ArrowRight") {
-      if (currentActionIndex < 2) {
-        currentActionIndex++;
-        if(currentActionIndex === 0) {
-          // Deseleziona carosello grafico
-        }
-        updateActionBadges();
-        renderCarousel();
-      }
-    }
-    
-    // GESTO C (Es: Ritorna alle lettere se sei sui comandi)
-    else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-      currentActionIndex = -1;
-      updateActionBadges();
-      renderCarousel();
+    // GESTO ESCAPE (Freccia Su o Giù): se ti blocchi dentro una riga, esci e torni a scegliere le righe
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      currentCol = -1;
+      statusText.textContent = "MODALITÀ MATRICE: SCELTA RIGA";
+      renderMatrix();
+      return;
     }
 
-    // GESTO D (Es: Pinch forte / Click) -> Conferma e Scrivi
-    else if (e.key === "Enter") {
-      if (currentActionIndex === -1) {
-        // Aggiungi la lettera selezionata
-        if (currentText === "Inizia a scrivere...") currentText = "";
-        currentText += alphabet[currentIndex];
-        textPreview.textContent = currentText;
-      } else {
-        // Esegui azione rapida
-        const action = actions[currentActionIndex];
-        if (action === "SPACE") {
-          currentText += " ";
-          textPreview.textContent = currentText;
-        } else if (action === "BACKSPACE") {
+    if (currentCol === -1) {
+      // --- STATO 1: SELEZIONE DELLA RIGA ---
+      if (e.key === "ArrowLeft") {
+        currentRow = (currentRow - 1 + matrix.length) % matrix.length;
+        renderMatrix();
+      } else if (e.key === "ArrowRight") {
+        currentRow = (currentRow + 1) % matrix.length;
+        renderMatrix();
+      } else if (e.key === "Enter") {
+        // Conferma riga, passa alla selezione della colonna (partendo dalla prima cella)
+        currentCol = 0;
+        statusText.textContent = "MODALITÀ MATRICE: SCELTA LETTERA";
+        renderMatrix();
+      }
+    } else {
+      // --- STATO 2: SELEZIONE DELLA CELLA (DENTRO LA RIGA) ---
+      if (e.key === "ArrowLeft") {
+        currentCol = (currentCol - 1 + matrix[currentRow].length) % matrix[currentRow].length;
+        renderMatrix();
+      } else if (e.key === "ArrowRight") {
+        currentCol = (currentCol + 1) % matrix[currentRow].length;
+        renderMatrix();
+      } else if (e.key === "Enter") {
+        // Scelta effettuata! Estrai il valore della cella
+        const val = matrix[currentRow][currentCol];
+        
+        if (val === "⌫ CANCELLA") {
           currentText = currentText.slice(0, -1);
-          textPreview.textContent = currentText || "Inizia a scrivere...";
-        } else if (action === "SEND") {
-          if (currentText.trim() !== "" && currentText !== "Inizia a scrivere...") {
+        } else if (val === "🚀 INVIA") {
+          if (currentText.trim() !== "" && currentText !== "Scrivi con i gesti...") {
             sendToAI(currentText);
             currentText = "";
-            textPreview.textContent = "Inizia a scrivere...";
           }
+        } else {
+          if (currentText === "Scrivi con i gesti...") currentText = "";
+          currentText += val;
         }
-        // Torna al carosello dopo un'azione
-        currentActionIndex = -1;
-        updateActionBadges();
-        renderCarousel();
+        
+        textPreview.textContent = currentText || "Scrivi con i gesti...";
+        textPreview.scrollTop = textPreview.scrollHeight; // Auto scroll del testo
+
+        // Torna istantaneamente alla selezione della riga per la prossima lettera
+        currentCol = -1;
+        statusText.textContent = "MODALITÀ MATRICE: SCELTA RIGA";
+        renderMatrix();
       }
     }
   });
 
-  // Inizializzazione della grafica
-  renderCarousel();
+  renderMatrix();
 
-  // Logica di invio all'IA (Pollinations con Ricerca Web)
+  // Logica API Pollinations con Ricerca Web Attiva
   function appendBubble(sender, text) {
     chatHistory.push({ sender: sender, text: text });
     const bubble = document.createElement('div');
@@ -226,12 +232,12 @@
 
       appendBubble('ai', reply);
     } catch (e) {
-      appendBubble('ai', 'Errore di rete. Riprova.');
+      appendBubble('ai', 'Errore di connessione. Riprova.');
     }
 
     isThinking = false;
     statusBar.className = "state-ready";
-    statusText.textContent = "INPUT NEURALE ATTIVO";
+    statusText.textContent = "MODALITÀ MATRICE: SCELTA RIGA";
   }
 </script>
 </body>
