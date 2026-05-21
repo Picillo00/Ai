@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <meta name="theme-color" content="#000000">
 <title>HUD WhatsApp Style Chat with Neural Lock</title>
-<link rel="icon" type="image/png" href="preview.png.jpg">
 <style>
   * {
     box-sizing: border-box;
@@ -154,11 +153,11 @@
 <div class="chat-container">
   <div id="status-bar" class="state-ready">
     <div class="dot"></div>
-    <span id="status-text">PRONTO</span>
+    <span id="status-text">AVVIO CONNESSIONE...</span>
   </div>
 
   <div id="display-box">
-    <div class="bubble ai"><strong>IA:</strong> Sistema allineato con l'architettura Hardware Lock. Fai il pinch o invia l'input dal bracciale per testare la risposta della Neural Band.</div>
+    <div class="bubble ai"><strong>IA:</strong> Sistema Ponte Inizializzato. Attendo connessione al server...</div>
   </div>
 
   <div class="buttons-menu">
@@ -174,47 +173,51 @@
   const btnTalk = document.getElementById('btn-talk');
   const btnRollout = document.getElementById('btn-rollout');
 
-  let recognition;
   let isListening = false;
   let isThinking = false; 
   let lastTriggerTime = 0; 
-  
   let chatHistory = []; 
   let requestQueue = []; 
 
-  // Inizializzazione controllata dell'API Speech Recognition con log a schermo
-  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SpeechRecognition();
-    recognition.lang = 'it-IT';
-    recognition.continuous = false;
-    recognition.interimResults = false;
+  // ==========================================
+  // CONFIGURAZIONE WEBSOCKET PONTE
+  // ==========================================
+  const wsUrl = 'wss://IL_TUO_SERVER.com'; // INSERISCI QUI IL TUO INDIRIZZO
+  let ws;
 
-    recognition.onstart = () => {
-      isListening = true;
-      updateStatusDisplay('ASCOLTO...');
+  function initWebSocket() {
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+      updateStatusDisplay('PRONTO (WS CONNESSO)');
+      appendBubble('ai', 'Connesso. Assicurati che Safari su iPhone sia sbloccato e in attesa.');
     };
 
-    // Stampa l'errore specifico della WebView direttamente sulla barra di stato HUD
-    recognition.onerror = (event) => { 
-      updateStatusDisplay('ERRORE VOCE: ' + event.error);
-      isListening = false;
+    ws.onerror = (error) => {
+      updateStatusDisplay('ERRORE CONNESSIONE WS');
+      appendBubble('ai', 'Errore server ponte.');
     };
 
-    recognition.onend = () => { 
-      isListening = false; 
-      if (requestQueue.length === 0 && !isThinking) resetStatus();
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      // L'iPhone ci ha mandato la trascrizione dell'audio
+      if (data.type === 'transcript') {
+        isListening = false;
+        appendBubble('user', data.text);
+        pushToQueue(data.text);
+      }
+      // L'iPhone ha rilevato un errore
+      else if (data.type === 'error') {
+        isListening = false;
+        updateStatusDisplay('ERRORE MIC IPHONE');
+        setTimeout(resetStatus, 2000);
+      }
     };
-
-    recognition.onresult = (event) => {
-      const textSpoken = event.results[0][0].transcript;
-      appendBubble('user', textSpoken);
-      pushToQueue(textSpoken);
-    };
-  } else {
-    // Segnale visivo nell'HUD se il browser integrato negli occhiali manca dell'API
-    setTimeout(() => { updateStatusDisplay('VOCE NON SUPPORTATA DA WEBVIEW'); }, 500);
   }
+
+  // Avvia la connessione all'apertura dell'HUD
+  initWebSocket();
 
   function appendBubble(sender, text) {
     chatHistory.push({ sender: sender, text: text });
@@ -322,7 +325,7 @@
   }
 
   function updateStatusDisplay(stateText) {
-    if (stateText.includes('ASCOLTO')) statusBar.className = 'state-listening';
+    if (stateText.includes('IPHONE')) statusBar.className = 'state-listening';
     else if (stateText.includes('ELABORAZIONE') || stateText.includes('CODA')) statusBar.className = 'state-thinking';
     else statusBar.className = 'state-ready';
     
@@ -337,23 +340,22 @@
     }
   }
 
+  // ==========================================
+  // INVIO COMANDO DI ASCOLTO ALL'IPHONE
+  // ==========================================
   function toggleListening() {
-    if (!recognition) {
-      appendBubble('ai', 'Riconoscimento vocale non supportato o bloccato su questa WebView hardware.');
+    if (ws.readyState !== WebSocket.OPEN) {
+      updateStatusDisplay('SERVER DISCONNESSO');
       return;
     }
-    if (isListening) {
-      recognition.stop();
-    } else {
-      try {
-        recognition.start();
-      } catch(e) {
-        updateStatusDisplay('ERRORE AVVIO: ' + e.message);
-      }
-    }
+    
+    isListening = true;
+    updateStatusDisplay('IN ASCOLTO (IPHONE)...');
+    
+    // Manda all'iPhone l'ordine di aprire il microfono
+    ws.send(JSON.stringify({ type: 'start_listening' }));
   }
 
-  // Intercettatori unificati per evitare blocchi legati alla natura dell'input emulato
   function triggerTalk(e) {
     if (e && e.type !== 'keydown') e.preventDefault(); 
     const now = Date.now();
@@ -372,7 +374,6 @@
     removeLastUserRequest();
   }
 
-  // Assegnazione multipla degli ascoltatori di eventi per il bracciale (Click, Touch, Pressione Tasti)
   btnTalk.addEventListener('click', triggerTalk);
   btnTalk.addEventListener('touchstart', triggerTalk);
   btnTalk.addEventListener('keydown', (e) => {
@@ -389,7 +390,6 @@
     }
   });
 
-  // Aggancio iniziale del Focus ritardato per stabilizzare l'iniezione hardware del bracciale
   setTimeout(() => { 
     btnTalk.focus(); 
   }, 500);
