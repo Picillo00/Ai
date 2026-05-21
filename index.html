@@ -2,47 +2,66 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#000000">
-<title>HUD AI - Decision Tree Keyboard</title>
+<title>HUD WhatsApp Tree Chat</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
-  body { background-color: #020205; color: #ffffff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 12px; overflow: hidden; user-select: none; }
-  
-  .chat-container { 
-    background: #05050a; width: 100%; max-width: 360px; height: 92vh; 
-    border-radius: 24px; padding: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9); 
-    border: 2px solid #0b0b14; display: flex; flex-direction: column; justify-content: space-between; 
+  :root {
+    --bg: #000000;
+    --text: #ffffff;
+    --dim: #555555;
+    --user-color: #39ff14; /* Verde WhatsApp / Neon */
+    --ai-color: #00e5ff;   /* Ciano */
   }
   
-  #status-bar { font-size: 11px; font-weight: bold; color: #00ffaa; letter-spacing: 2px; display: flex; align-items: center; gap: 6px; padding-bottom: 8px; border-bottom: 1px solid #1a1a26; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #00ffaa; }
-  .state-thinking .dot { background: #f4b400; animation: pulse 1s infinite; }
+  * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
   
-  #display-box { flex-grow: 1; display: flex; flex-direction: column; gap: 10px; padding: 10px 0; overflow-y: auto; scroll-behavior: smooth; border-radius: 8px; transition: all 0.2s ease; }
+  body, html {
+    margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden; touch-action: none;
+  }
+
+  #wrap { display: flex; flex-direction: column; height: 100%; padding: 12px; justify-content: space-between; }
+
+  /* Header fisso in alto */
+  #status-bar {
+    font-size: 11px; font-weight: bold; color: var(--dim); letter-spacing: 2px;
+    display: flex; align-items: center; gap: 6px; padding-bottom: 6px;
+    border-bottom: 1px solid #111; z-index: 10; background: var(--bg);
+  }
+  
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+  .state-thinking .dot { background: #f4b400; animation: pulse 1s infinite; }
+  .state-ready .dot { background: var(--user-color); }
+
+  /* Area Chat vertical list style WhatsApp */
+  #display-box { flex-grow: 1; display: flex; flex-direction: column; gap: 12px; padding: 10px 0; overflow-y: scroll; scroll-behavior: smooth; }
   #display-box::-webkit-scrollbar { display: none; }
-  .chat-scrolling #display-box { background: rgba(0, 229, 255, 0.03); }
+  .chat-scrolling #display-box { background: rgba(0, 229, 255, 0.02); }
 
-  .bubble { max-width: 85%; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.35; animation: fadeIn 0.2s ease forwards; word-wrap: break-word; }
-  .bubble.user { align-self: flex-end; background: rgba(0, 255, 170, 0.08); border: 1px solid #00ffaa; color: #00ffaa; border-bottom-right-radius: 4px; }
+  /* Bolle della Chat */
+  .bubble { max-width: 85%; padding: 10px 14px; border-radius: 16px; font-size: 16px; line-height: 1.35; animation: fadeIn 0.2s ease forwards; word-wrap: break-word; }
+  .bubble.user { align-self: flex-end; background: rgba(57, 255, 20, 0.08); border: 1px solid var(--user-color); color: var(--user-color); border-bottom-right-radius: 4px; font-style: italic; }
   .bubble.ai { align-self: flex-start; background: rgba(0, 229, 255, 0.05); border: 1px solid rgba(0, 229, 255, 0.4); color: #f0f0f0; border-bottom-left-radius: 4px; }
-  .bubble.ai strong { color: #00e5ff; }
+  .bubble.ai strong { color: var(--ai-color); }
 
-  /* ZONA TASTIERA / MENU */
-  .neural-matrix-zone { background: #07070f; border: 1px solid #141426; border-radius: 18px; padding: 8px; display: flex; flex-direction: column; gap: 8px; transition: opacity 0.2s ease; }
-  .chat-scrolling .neural-matrix-zone { opacity: 0.3; }
+  /* ZONA TASTIERA AD ALBERO DECISIONALE */
+  .neural-matrix-zone { background: #050508; border: 1px solid #111; border-radius: 16px; padding: 8px; display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+  .chat-scrolling .neural-matrix-zone { opacity: 0.2; }
 
-  #text-preview-container { min-height: 38px; border-bottom: 1px dashed #222; padding-bottom: 4px; display: flex; flex-wrap: wrap; align-items: center; }
-  #text-preview { font-size: 16px; color: #ffffff; font-weight: bold; }
-  #text-suggestion { font-size: 16px; color: #555555; font-style: italic; margin-left: 2px; }
+  #text-preview-container { min-height: 32px; border-bottom: 1px dashed #222; padding-bottom: 4px; display: flex; flex-wrap: wrap; align-items: center; }
+  #text-preview { font-size: 15px; color: #ffffff; font-weight: bold; }
+  #text-suggestion { font-size: 15px; color: var(--dim); font-style: italic; margin-left: 2px; }
 
   .matrix-grid { display: flex; flex-direction: column; gap: 4px; }
-  .matrix-row { display: flex; gap: 4px; padding: 2px; }
-  .matrix-cell { flex: 1; text-align: center; padding: 6px 2px; font-size: 12px; font-weight: bold; color: #444466; background: #0c0c17; border-radius: 4px; transition: all 0.1s ease; white-space: nowrap; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 32px; }
+  .matrix-row { display: flex; gap: 4px; padding: 1px; }
+  .matrix-cell { flex: 1; text-align: center; padding: 7px 2px; font-size: 12px; font-weight: bold; color: #444455; background: #08080f; border-radius: 6px; border: 1px solid #111; transition: all 0.1s ease; white-space: nowrap; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 34px; }
   
-  .matrix-cell.cell-focused { background: #00ffaa !important; color: #000000 !important; font-size: 13px; transform: scale(1.05); box-shadow: 0 0 10px #00ffaa; }
+  /* Focus Cella Stile HUD Neon */
+  .matrix-cell.cell-focused { background: var(--user-color) !important; color: #000000 !important; font-size: 13px; transform: scale(1.03); box-shadow: 0 0 12px var(--user-color); border-color: var(--user-color); }
   
-  .action-cell { color: #00e5ff; }
+  .action-cell { color: var(--ai-color); }
   .fn-cell { color: #ff3b3b; }
   .skip-cell { color: #f4b400; }
 
@@ -52,14 +71,14 @@
 </head>
 <body>
 
-<div class="chat-container" id="main-container">
+<div id="wrap">
   <div id="status-bar" class="state-ready">
     <div class="dot"></div>
-    <span id="status-text">COSTRUZIONE FRASE</span>
+    <span id="status-text">1. SCEGLI AVVIO</span>
   </div>
 
   <div id="display-box">
-    <div class="bubble ai"><strong>IA:</strong> Sistema a Blocchi caricato. Scegli l'Avvio, l'Articolo, e infine digita l'argomento.</div>
+    <div class="bubble ai"><strong>IA:</strong> Sistema ad Albero attivo. Costruisci la frase muovendoti liberamente (Su/Giù/Sx/Dx). Sali oltre la prima riga per rileggere la chat.</div>
   </div>
 
   <div class="neural-matrix-zone">
@@ -72,24 +91,25 @@
 </div>
 
 <script>
-  const mainContainer = document.getElementById('main-container');
-  const displayBox = document.getElementById('display-box');
+(() => {
+  const mainContainer = document.getElementById('wrap');
   const statusBar = document.getElementById('status-bar');
   const statusText = document.getElementById('status-text');
+  const displayBox = document.getElementById('display-box');
   const textPreview = document.getElementById('text-preview');
   const textSuggestion = document.getElementById('text-suggestion');
   const gridContainer = document.getElementById('grid-container');
-  
-  let isThinking = false;
-  let chatHistory = [];
+
+  let isThinking = false; 
+  let chatHistory = []; 
+  let requestQueue = []; 
   let currentText = "";
   let currentPrediction = "";
-  let chatFocus = false; 
+  let chatFocus = false;
 
-  // MACCHINA A STATI: 'STARTERS' -> 'ARTICLES' -> 'KEYBOARD'
-  let uiState = 'STARTERS'; 
+  // Stato Albero Decisionale: 'STARTERS' -> 'ARTICLES' -> 'KEYBOARD'
+  let uiState = 'STARTERS';
 
-  // I 3 LAYOUT DIVERSI
   const startersMatrix = [
     ["COS'È", "QUAL È", "CHI È"],
     ["DOV'È", "DOVE SONO", "COME"],
@@ -113,10 +133,9 @@
     ["J", "?", "W", " ", " ", " "]
   ];
 
-  let currentRow = 0; 
-  let currentCol = 0; 
+  let currentRow = 0;
+  let currentCol = 0;
 
-  // Funzione per ottenere la matrice attiva in base allo stato
   function getActiveMatrix() {
     if (uiState === 'STARTERS') return startersMatrix;
     if (uiState === 'ARTICLES') return articlesMatrix;
@@ -134,7 +153,6 @@
         const cellDiv = document.createElement('div');
         cellDiv.className = 'matrix-cell';
         
-        // Colora tasti speciali
         if (cellData.includes('⌨️') || cellData.includes('💡')) cellDiv.classList.add('action-cell');
         if (cellData.includes('⌫') || cellData.includes('🚀') || cellData.includes('🧹')) cellDiv.classList.add('fn-cell');
         if (cellData.includes('⏩')) cellDiv.classList.add('skip-cell');
@@ -150,9 +168,7 @@
     });
   }
 
-  // L'autocompletamento di Wikipedia parte solo nell'ultimo pezzo della frase
   async function fetchPrediction(text) {
-    // Estrae solo l'ultima parola digitata (esclude "Qual è la") per la previsione
     const words = text.trim().split(" ");
     const lastWord = words[words.length - 1];
 
@@ -179,14 +195,13 @@
 
   function updatePreview() {
     textPreview.textContent = currentText;
-    if (currentText === "") { 
-      textSuggestion.textContent = uiState === 'STARTERS' ? "Scegli l'Avvio..." : ""; 
-    } else { 
-      fetchPrediction(currentText); 
+    if (currentText === "") {
+      textSuggestion.textContent = uiState === 'STARTERS' ? "Scegli blocco iniziale..." : "";
+    } else {
+      fetchPrediction(currentText);
     }
   }
 
-  // Cambia stato e resetta i cursori
   function switchState(newState) {
     uiState = newState;
     currentRow = 0;
@@ -200,8 +215,8 @@
     updatePreview();
   }
 
+  // LOGICA DI NAVIGAZIONE D-PAD CONTINUA 4 DIREZIONI
   window.addEventListener('keydown', (e) => {
-    if (isThinking) return;
     const matrix = getActiveMatrix();
 
     if (chatFocus) {
@@ -212,7 +227,7 @@
         if (displayBox.scrollTop === oldScroll || (displayBox.scrollHeight - displayBox.scrollTop <= displayBox.clientHeight + 10)) {
           chatFocus = false;
           mainContainer.classList.remove('chat-scrolling');
-          statusText.textContent = uiState === 'KEYBOARD' ? "3. DIGITA ARGOMENTO" : "COSTRUZIONE FRASE";
+          switchState(uiState); 
         }
       }
       renderMatrix();
@@ -227,7 +242,7 @@
         currentRow = 0;
         chatFocus = true; 
         mainContainer.classList.add('chat-scrolling'); 
-        statusText.textContent = "INFO CHAT (SU/GIÙ)"; 
+        statusText.textContent = "CRONOLOGIA MESSAGGI"; 
       }
     } 
     else if (e.key === "ArrowDown") { if (currentRow < matrix.length - 1) { currentRow++; } } 
@@ -235,29 +250,18 @@
     else if (e.key === "Enter") {
       const val = matrix[currentRow][currentCol];
       
-      // LOGICA STATO 1: AVVIO
+      // FASE 1: AVVIO
       if (uiState === 'STARTERS') {
-        if (val === "⌨️ TASTIERA DIRETTA") {
-          currentText = "";
-          switchState('KEYBOARD');
-        } else {
-          currentText = val + " ";
-          switchState('ARTICLES');
-        }
+        if (val === "⌨️ TASTIERA DIRETTA") { currentText = ""; switchState('KEYBOARD'); } 
+        else { currentText = val + " "; switchState('ARTICLES'); }
       }
-      // LOGICA STATO 2: ARTICOLI
+      // FASE 2: ARTICOLI
       else if (uiState === 'ARTICLES') {
-        if (val === "⌫ ANNULLA") {
-          currentText = "";
-          switchState('STARTERS');
-        } else if (val === "⏩ SALTA ARTICOLO") {
-          switchState('KEYBOARD');
-        } else {
-          currentText += val.toLowerCase() + " ";
-          switchState('KEYBOARD');
-        }
+        if (val === "⌫ ANNULLA") { currentText = ""; switchState('STARTERS'); } 
+        else if (val === "⏩ SALTA ARTICOLO") { switchState('KEYBOARD'); } 
+        else { currentText += val.toLowerCase() + " "; switchState('KEYBOARD'); }
       }
-      // LOGICA STATO 3: TASTIERA
+      // FASE 3: DETTAGLIO TASTIERA
       else if (uiState === 'KEYBOARD') {
         if (val === "💡 COMPLETA") {
           if (currentPrediction !== "") { 
@@ -267,16 +271,15 @@
           }
         } else if (val === "⌫ CANC") {
           currentText = currentText.slice(0, -1);
-          if (currentText.trim() === "") switchState('STARTERS'); // Torna indietro se svuoti tutto
+          if (currentText.trim() === "") switchState('STARTERS');
         } else if (val === "🧹 RESET") {
-          currentText = ""; currentPrediction = "";
-          switchState('STARTERS');
+          currentText = ""; currentPrediction = ""; switchState('STARTERS');
         } else if (val === "🚀 INVIA") {
           if (currentText.trim() !== "") { 
-            sendToAI(currentText); 
-            currentText = ""; 
-            currentPrediction = "";
-            switchState('STARTERS'); // A fine invio, torna pronto all'avvio
+            appendBubble('user', currentText.trim());
+            pushToQueue(currentText.trim()); 
+            currentText = ""; currentPrediction = "";
+            switchState('STARTERS'); 
           }
         } else {
           currentText += val;
@@ -287,42 +290,70 @@
     renderMatrix();
   });
 
-  switchState('STARTERS');
-
   function appendBubble(sender, text) {
     chatHistory.push({ sender: sender, text: text });
     const bubble = document.createElement('div');
     bubble.className = `bubble ${sender}`;
-    bubble.innerHTML = sender === 'user' ? `[User]: ${text}` : `<strong>IA:</strong> ${text}`;
+    bubble.innerHTML = sender === 'user' ? text : `<strong>IA:</strong> ${text}`;
     displayBox.appendChild(bubble);
     setTimeout(() => { if (!chatFocus) displayBox.scrollTop = displayBox.scrollHeight; }, 50);
+    resetStatus();
   }
 
-  async function sendToAI(promptText) {
-    isThinking = true;
-    statusBar.className = "state-thinking";
-    statusText.textContent = "ELABORAZIONE...";
-    appendBubble('user', promptText.trim());
+  // GESTIONE CODA INTELLIGENTE PRESA DAL TUO CODICE BASE
+  function pushToQueue(promptText) {
+    requestQueue.push(promptText);
+    if (!isThinking) { processNextQueueItem(); } 
+    else { updateStatusDisplay(`IN CODA [${requestQueue.length}]`); }
+  }
 
-    const systemPrompt = "Sei un assistente per smart glasses nell'anno 2026. Fornisci risposte spietatamente concise e dati in tempo reale su query specifiche. Usa elenchi puntati o massimo due righe. Zero saluti.";
+  async function processNextQueueItem() {
+    if (requestQueue.length === 0) { isThinking = false; resetStatus(); return; }
+
+    const nextPrompt = requestQueue.shift();
+    if (nextPrompt === "__CANCELLED__") { setTimeout(processNextQueueItem, 50); return; }
+
+    isThinking = true;
+    updateStatusDisplay('ELABORAZIONE...');
+
+    // Prompt aggiornato all'anno corrente 2026
+    const systemInstruction = 'Sei un assistente HUD per occhiali smart. Ci troviamo nell\'anno 2026. Rispondi in italiano. Sii preciso al 100% sui dati storici, geografici e sportivi. Verifica sempre le informazioni usando la ricerca web attiva (es. restituisci classifiche o dati reali del 2026). Rispondi in massimo due frasi cortissime senza fronzoli. Rispondi SEMPRE e SOLO con testo semplice in italiano. Non restituire MAI codice JSON, reasoning o tool_calls.';
     
     try {
-      const url = `https://text.pollinations.ai/${encodeURIComponent(promptText)}?search=true&model=openai&system=${encodeURIComponent(systemPrompt)}`;
+      const url = `https://text.pollinations.ai/${encodeURIComponent(nextPrompt)}?search=true&model=openai&system=${encodeURIComponent(systemInstruction)}`;
       const response = await fetch(url);
-      let reply = (await response.text()).trim();
+      if (!response.ok) throw new Error('Errore di risposta');
 
-      if (reply.startsWith('{')) {
-        try { const j = JSON.parse(reply); if(j.content) reply = j.content; } catch(e){}
+      let reply = (await response.text()).trim();
+      
+      if (reply.startsWith('{') || reply.includes('"reasoning"')) {
+         try {
+             const jsonObj = JSON.parse(reply);
+             if (jsonObj.content) reply = jsonObj.content;
+         } catch (e) { reply = "Sto verificando i dati, puoi ripetere?"; }
       }
+
       appendBubble('ai', reply);
-    } catch (e) {
-      appendBubble('ai', 'Errore di rete.');
+    } catch (error) {
+      appendBubble('ai', 'Ricerca in corso troppo complessa. Riprova.');
     }
 
-    isThinking = false;
-    statusBar.className = "state-ready";
-    statusText.textContent = "1. SCEGLI AVVIO";
+    setTimeout(processNextQueueItem, 500);
   }
+
+  function updateStatusDisplay(stateText) {
+    if (stateText.includes('ELABORAZIONE') || stateText.includes('CODA')) statusBar.className = 'state-thinking';
+    else statusBar.className = 'state-ready';
+    statusText.textContent = stateText;
+  }
+
+  function resetStatus() {
+    if (requestQueue.length > 0) updateStatusDisplay(`IN CODA [${requestQueue.length}]`);
+    else updateStatusDisplay(uiState === 'STARTERS' ? "1. SCEGLI AVVIO" : uiState === 'ARTICLES' ? "2. SCEGLI ARTICOLO" : "3. DIGITA ARGOMENTO");
+  }
+
+  renderMatrix();
+  updatePreview();
+})();
 </script>
 </body>
-</html>
