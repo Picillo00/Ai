@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Companion iPhone (GitHub Safe)</title>
+<style>
+  body { background: #020205; color: #00ffaa; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+  .setup-box { width: 100%; max-width: 400px; background: #0a0a14; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #1a1a26; }
+  input { width: 100%; padding: 12px; font-size: 16px; background: #000; border: 1px solid #00ffaa; color: #fff; border-radius: 8px; margin-bottom: 15px; box-sizing: border-box; }
+  button { width: 100%; padding: 16px; font-size: 18px; font-weight: bold; background: rgba(0,255,170,0.1); border: 2px solid #00ffaa; color: #00ffaa; border-radius: 12px; cursor: pointer; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0, 255, 170, 0.2); }
+  #log { width: 100%; max-width: 400px; height: 300px; background: #05050a; padding: 15px; font-family: monospace; font-size: 14px; overflow-y: auto; border-radius: 12px; border: 1px solid #1a1a26; }
+  .msg { margin-bottom: 8px; border-bottom: 1px solid #111; padding-bottom: 4px; }
+</style>
+</head>
+<body>
+
+  <div class="setup-box">
+    <label style="display:block; margin-bottom: 10px; font-size: 14px; color: #aaa;">Indirizzo Server WebSocket:</label>
+    <input type="text" id="wsInput" placeholder="wss://tuo-server.glitch.me" />
+    <button id="connectBtn">1. Connetti Server</button>
+    <button id="unlockBtn" style="display:none; border-color: #f4b400; color: #f4b400; background: rgba(244,180,0,0.1);">2. Sblocca Microfono iOS</button>
+  </div>
+
+  <div id="log"><div class="msg">> Configura il server per iniziare...</div></div>
+
+<script>
+  const logDiv = document.getElementById('log');
+  const wsInput = document.getElementById('wsInput');
+  const connectBtn = document.getElementById('connectBtn');
+  const unlockBtn = document.getElementById('unlockBtn');
+  let ws;
+  let recognition;
+
+  // Carica il server salvato
+  if(localStorage.getItem('savedWs')) {
+    wsInput.value = localStorage.getItem('savedWs');
+  }
+
+  function log(msg) { logDiv.innerHTML += `<div class="msg">> ${msg}</div>`; logDiv.scrollTop = logDiv.scrollHeight; }
+
+  // Inizializza il motore microfono
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.lang = 'it-IT';
+    recognition.continuous = false;
+    
+    recognition.onstart = () => log("🔴 Microfono ATTIVO (Ascolto dalle Ray-Ban)...");
+    
+    recognition.onresult = (event) => {
+      const text = event.results[0][0].transcript;
+      log("🟢 Testo riconosciuto: " + text);
+      if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'transcript', text: text }));
+    };
+    recognition.onerror = (e) => {
+      log("Errore Mic: " + e.error);
+      if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'error', error: e.error }));
+    };
+  } else {
+    log("ERRORE CRITICO: Browser non supportato.");
+  }
+
+  // Connessione al WebSocket
+  connectBtn.addEventListener('click', () => {
+    const url = wsInput.value.trim();
+    if(!url) return alert("Inserisci un indirizzo WSS");
+    localStorage.setItem('savedWs', url);
+    
+    log("Tentativo di connessione a " + url + " ...");
+    ws = new WebSocket(url);
+    
+    ws.onopen = () => {
+      log("✅ Connesso al server ponte WebSocket.");
+      connectBtn.style.display = 'none';
+      wsInput.style.display = 'none';
+      unlockBtn.style.display = 'block';
+    };
+    
+    ws.onerror = () => log("❌ Errore di connessione al server WebSocket.");
+    
+    ws.onmessage = (event) => {
+      let data;
+      try { data = JSON.parse(event.data); } catch(e) { return; }
+      
+      // Il cuore del sistema: Riceve il comando "PARLA" dalle Ray-Ban
+      if (data.type === 'start_listening') {
+        log("📲 Comando 'PARLA' ricevuto dalle Ray-Ban. Avvio mic...");
+        try { recognition.start(); } catch(e) { log("Errore avvio mic: " + e.message); }
+      }
+    };
+  });
+
+  // Sblocco permessi obbligatorio per Apple iOS
+  unlockBtn.addEventListener('click', () => {
+    try {
+      recognition.start();
+      setTimeout(() => recognition.stop(), 500); 
+      log("✅ Permessi microfono accordati. Ora puoi usare le Ray-Ban.");
+      unlockBtn.style.display = 'none';
+    } catch(e) { log("Errore richiesta permessi: " + e.message); }
+  });
+</script>
+</body>
+</html>
